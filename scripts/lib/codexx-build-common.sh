@@ -8,6 +8,10 @@ codexx_cargo_root() {
   printf '%s/codex-rs\n' "$(codexx_repo_root)"
 }
 
+codexx_build_root() {
+  printf '%s/build\n' "$(codexx_repo_root)"
+}
+
 codexx_toolchain() {
   sed -n 's/^channel = "\(.*\)"/\1/p' "$(codexx_cargo_root)/rust-toolchain.toml" | head -n 1
 }
@@ -297,6 +301,7 @@ codexx_print_environment_report() {
   printf '  OS: %s\n' "$(uname -srvmo 2>/dev/null || uname -a)" >&2
   printf '  Repo: %s\n' "$(codexx_repo_root)" >&2
   printf '  Cargo workspace: %s\n' "$(codexx_cargo_root)" >&2
+  printf '  Fork build root: %s\n' "$(codexx_build_root)" >&2
   printf '  Package manager: %s\n' "${pkg_manager:-not-found}" >&2
   printf '  RUSTUP_DIST_SERVER: %s\n' "$RUSTUP_DIST_SERVER" >&2
   printf '  RUSTUP_UPDATE_ROOT: %s\n' "$RUSTUP_UPDATE_ROOT" >&2

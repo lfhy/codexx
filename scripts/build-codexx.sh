@@ -42,6 +42,7 @@ else
 fi
 
 cargo_root="$(codexx_cargo_root)"
+build_root="$(codexx_build_root)"
 toolchain="$(codexx_toolchain)"
 
 codexx_log "Building fork artifact codexx (${profile})"
@@ -55,12 +56,13 @@ fi
 
 artifact_dir="$cargo_root/target/$profile"
 source_binary="$artifact_dir/codex"
-fork_binary="$artifact_dir/codexx"
+fork_binary="$build_root/codexx"
 
 if [[ ! -f "$source_binary" ]]; then
   codexx_die "expected build output not found: $source_binary"
 fi
 
+mkdir -p "$build_root"
 install -m 755 "$source_binary" "$fork_binary"
 codexx_log "Fork binary ready: $fork_binary"
 

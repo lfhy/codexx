@@ -5,7 +5,7 @@ In the codex-rs folder where the rust code lives:
 - This repository is a fork. For local packaging and handoff builds, the fork artifact name must be `codexx` instead of `codex`.
 - Do not rename upstream Rust crate names, package names, or internal `codex-*` identifiers just to satisfy the fork naming requirement unless the user explicitly asks for a full rebrand. The default fork workflow is to build the upstream `codex` binary and then emit a fork artifact named `codexx`.
 - Before any build or test session for this fork, run `scripts/bootstrap-build-env.sh` from the repo root, or `just bootstrap-build-env`. This script checks the build environment, exports domestic Rust mirror settings, and installs missing build dependencies automatically when the host package manager supports it.
-- For this fork, the default build command is `scripts/build-codexx.sh` from the repo root, or `just build-codexx`. Use `scripts/build-codexx.sh --release` for release builds. The generated fork artifact is written to `codex-rs/target/{debug,release}/codexx`.
+- For this fork, the default build command is `scripts/build-codexx.sh` from the repo root, or `just build-codexx`. Use `scripts/build-codexx.sh --release` for release builds. The generated fork artifact is always written to `build/codexx` at the repo root so quick verification has a stable path. Cargo's own `codex-rs/target/` contents remain intermediate build outputs and should not be treated as the handoff artifact.
 - The fork build scripts must keep using the domestic Rust mirrors documented by RsProxy to reduce cross-border network failures:
   - `RUSTUP_DIST_SERVER=https://rsproxy.cn`
   - `RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup`
