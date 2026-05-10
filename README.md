@@ -65,6 +65,12 @@ build/codexx
 codex-rs/target/debug/codex
 ```
 
+本地重复构建会自动尝试启用 `sccache`，缓存目录默认放在：
+
+```bash
+~/.cache/codexx/sccache
+```
+
 ### 3. 启动
 
 ```bash

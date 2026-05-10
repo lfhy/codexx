@@ -11,6 +11,9 @@ In the codex-rs folder where the rust code lives:
   - `scripts/build-codexx.sh` or `just build-codexx` is for local packaging / handoff builds that must emit `build/codexx`.
   - `scripts/build-codexx-release.sh` or `just build-codexx-release` is for final release packaging.
   - Cargo's own `codex-rs/target/` contents remain intermediate build outputs and should not be treated as the handoff artifact unless the task is explicitly local debug/run.
+- Keep the local `codex-rs/target/` directory warm between runs. Do not add cleanup steps that delete it as part of routine build or debug flows.
+- Use `sccache` for repeated local builds when available; the build scripts should prefer a stable cache directory under `~/.cache/codexx/sccache` and set `RUSTC_WRAPPER=sccache` automatically once installed.
+- Keep `run-codexx-debug` optimized for edit-run loops with incremental debug builds, while `verify-codexx` and packaging/release flows should prefer cacheable non-incremental builds so `sccache` can do useful work.
 - The fork build scripts must keep using the domestic Rust mirrors documented by RsProxy to reduce cross-border network failures:
   - `RUSTUP_DIST_SERVER=https://rsproxy.cn`
   - `RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup`

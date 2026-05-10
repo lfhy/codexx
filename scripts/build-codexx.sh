@@ -39,6 +39,8 @@ if [[ "$skip_bootstrap" == "0" ]]; then
   codexx_prepare_build_env
 else
   codexx_export_mirror_env
+  codexx_export_build_cache_env
+  codexx_start_sccache
 fi
 
 cargo_root="$(codexx_cargo_root)"
@@ -52,6 +54,7 @@ codexx_log "Building fork artifact codexx (${profile}, v${workspace_version}, ${
 cd "$cargo_root"
 
 export CODEXX_GIT_SHA="$git_commit"
+export CARGO_INCREMENTAL=0
 
 if [[ "$profile" == "release" ]]; then
   rustup run "$toolchain" cargo build -p codex-cli --bin codex --release

@@ -12,6 +12,14 @@ codexx_build_root() {
   printf '%s/build\n' "$(codexx_repo_root)"
 }
 
+codexx_default_target_dir() {
+  printf '%s/target\n' "$(codexx_cargo_root)"
+}
+
+codexx_default_sccache_dir() {
+  printf '%s/.cache/codexx/sccache\n' "${HOME}"
+}
+
 codexx_toolchain() {
   sed -n 's/^channel = "\(.*\)"/\1/p' "$(codexx_cargo_root)/rust-toolchain.toml" | head -n 1
 }
@@ -149,6 +157,20 @@ codexx_export_mirror_env() {
   export PATH="${HOME}/.cargo/bin:${PATH}"
   codexx_select_git_mirror_prefix
   codexx_append_git_config_env "url.${CODEXX_GIT_MIRROR_PREFIX}.insteadof" "https://github.com/"
+}
+
+codexx_export_build_cache_env() {
+  export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$(codexx_default_target_dir)}"
+  export SCCACHE_DIR="${SCCACHE_DIR:-$(codexx_default_sccache_dir)}"
+  export SCCACHE_CACHE_SIZE="${SCCACHE_CACHE_SIZE:-20G}"
+  export SCCACHE_IDLE_TIMEOUT="${SCCACHE_IDLE_TIMEOUT:-0}"
+  export SCCACHE_IGNORE_SERVER_IO_ERROR="${SCCACHE_IGNORE_SERVER_IO_ERROR:-1}"
+
+  mkdir -p "$CARGO_TARGET_DIR" "$SCCACHE_DIR"
+
+  if codexx_have_cmd sccache; then
+    export RUSTC_WRAPPER="${RUSTC_WRAPPER:-sccache}"
+  fi
 }
 
 codexx_install_system_prereqs() {
@@ -305,6 +327,24 @@ codexx_ensure_cargo_binary() {
   codexx_cargo install --locked "$crate_name"
 }
 
+codexx_ensure_sccache() {
+  if codexx_have_cmd sccache; then
+    return 0
+  fi
+
+  codexx_log "Installing cargo package sccache"
+  codexx_cargo install --locked sccache
+}
+
+codexx_start_sccache() {
+  if ! codexx_have_cmd sccache; then
+    return 0
+  fi
+
+  codexx_export_build_cache_env
+  sccache --start-server >/dev/null 2>&1 || true
+}
+
 codexx_print_environment_report() {
   local pkg_manager
   pkg_manager="$(codexx_detect_pkg_manager)"
@@ -314,10 +354,14 @@ codexx_print_environment_report() {
   printf '  Repo: %s\n' "$(codexx_repo_root)" >&2
   printf '  Cargo workspace: %s\n' "$(codexx_cargo_root)" >&2
   printf '  Fork build root: %s\n' "$(codexx_build_root)" >&2
+  printf '  Cargo target dir: %s\n' "$CARGO_TARGET_DIR" >&2
   printf '  Package manager: %s\n' "${pkg_manager:-not-found}" >&2
   printf '  RUSTUP_DIST_SERVER: %s\n' "$RUSTUP_DIST_SERVER" >&2
   printf '  RUSTUP_UPDATE_ROOT: %s\n' "$RUSTUP_UPDATE_ROOT" >&2
   printf '  CARGO_REGISTRIES_CRATES_IO_INDEX: %s\n' "$CARGO_REGISTRIES_CRATES_IO_INDEX" >&2
+  printf '  RUSTC_WRAPPER: %s\n' "${RUSTC_WRAPPER:-not-set}" >&2
+  printf '  SCCACHE_DIR: %s\n' "$SCCACHE_DIR" >&2
+  printf '  SCCACHE_CACHE_SIZE: %s\n' "$SCCACHE_CACHE_SIZE" >&2
   printf '  CODEXX_GIT_MIRROR_CANDIDATES: %s\n' "$CODEXX_GIT_MIRROR_CANDIDATES" >&2
   printf '  CODEXX_GIT_MIRROR_PREFIX: %s\n' "$CODEXX_GIT_MIRROR_PREFIX" >&2
   printf '  rustup: %s\n' "$(rustup --version | head -n 1)" >&2
@@ -335,11 +379,14 @@ codexx_print_environment_report() {
 
 codexx_prepare_build_env() {
   codexx_export_mirror_env
+  codexx_export_build_cache_env
   codexx_install_system_prereqs
   codexx_ensure_rustup
   codexx_ensure_rust_toolchain
   codexx_ensure_cargo_binary just just
   codexx_ensure_cargo_binary cargo-insta cargo-insta
   codexx_ensure_cargo_binary cargo-nextest cargo-nextest
+  codexx_ensure_sccache
+  codexx_start_sccache
   codexx_print_environment_report
 }

@@ -28,11 +28,16 @@ done
 
 if [[ "$skip_bootstrap" == "0" ]]; then
   codexx_export_mirror_env
+  codexx_export_build_cache_env
   codexx_install_system_prereqs
   codexx_ensure_rustup
   codexx_ensure_rust_toolchain
+  codexx_ensure_sccache
+  codexx_start_sccache
 else
   codexx_export_mirror_env
+  codexx_export_build_cache_env
+  codexx_start_sccache
 fi
 
 cargo_root="$(codexx_cargo_root)"
@@ -44,6 +49,7 @@ git_short_commit="$(codexx_git_short_commit)"
 cd "$cargo_root"
 
 export CODEXX_GIT_SHA="$git_commit"
+export CARGO_INCREMENTAL=1
 
 codexx_log "Building debug binary for local run (${workspace_version}, ${git_short_commit})"
 rustup run "$toolchain" cargo build -p codex-cli --bin codex
