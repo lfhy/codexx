@@ -63,6 +63,7 @@ fn test_provider(base_url: String) -> Provider {
         name: "test".to_string(),
         base_url,
         query_params: Some(HashMap::new()),
+        wire: codex_api::WireApi::Responses,
         headers: HeaderMap::new(),
         retry: RetryConfig {
             max_attempts: 1,

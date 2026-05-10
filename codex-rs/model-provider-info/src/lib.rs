@@ -41,7 +41,6 @@ pub const AMAZON_BEDROCK_DEFAULT_BASE_URL: &str =
     "https://bedrock-mantle.us-east-1.api.aws/openai/v1";
 const AMAZON_BEDROCK_MANTLE_CLIENT_AGENT_HEADER: &str = "x-amzn-mantle-client-agent";
 const AMAZON_BEDROCK_MANTLE_CLIENT_AGENT_VALUE: &str = "codex";
-const CHAT_WIRE_API_REMOVED_ERROR: &str = "`wire_api = \"chat\"` is no longer supported.\nHow to fix: set `wire_api = \"responses\"` in your provider config.\nMore info: https://github.com/openai/codex/discussions/7782";
 pub const LEGACY_OLLAMA_CHAT_PROVIDER_ID: &str = "ollama-chat";
 pub const OLLAMA_CHAT_PROVIDER_REMOVED_ERROR: &str = "`ollama-chat` is no longer supported.\nHow to fix: replace `ollama-chat` with `ollama` in `model_provider`, `oss_provider`, or `--local-provider`.\nMore info: https://github.com/openai/codex/discussions/7782";
 
@@ -49,6 +48,8 @@ pub const OLLAMA_CHAT_PROVIDER_REMOVED_ERROR: &str = "`ollama-chat` is no longer
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum WireApi {
+    /// Regular Chat Completions compatible with `/v1/chat/completions`.
+    Chat,
     /// The Responses API exposed by OpenAI at `/v1/responses`.
     #[default]
     Responses,
@@ -57,6 +58,7 @@ pub enum WireApi {
 impl fmt::Display for WireApi {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value = match self {
+            Self::Chat => "chat",
             Self::Responses => "responses",
         };
         f.write_str(value)
@@ -70,9 +72,12 @@ impl<'de> Deserialize<'de> for WireApi {
     {
         let value = String::deserialize(deserializer)?;
         match value.as_str() {
+            "chat" => Ok(Self::Chat),
             "responses" => Ok(Self::Responses),
-            "chat" => Err(serde::de::Error::custom(CHAT_WIRE_API_REMOVED_ERROR)),
-            _ => Err(serde::de::Error::unknown_variant(&value, &["responses"])),
+            _ => Err(serde::de::Error::unknown_variant(
+                &value,
+                &["chat", "responses"],
+            )),
         }
     }
 }
@@ -146,6 +151,10 @@ pub struct ModelProviderAwsAuthInfo {
 
 impl ModelProviderInfo {
     pub fn validate(&self) -> std::result::Result<(), String> {
+        if self.supports_websockets && self.wire_api != WireApi::Responses {
+            return Err("supports_websockets requires `wire_api = \"responses\"`".to_string());
+        }
+
         if self.aws.is_some() {
             if self.supports_websockets {
                 // TODO(celia-oai): Support AWS SigV4 signing for WebSocket
@@ -259,6 +268,10 @@ impl ModelProviderInfo {
             name: self.name.clone(),
             base_url,
             query_params: self.query_params.clone(),
+            wire: match self.wire_api {
+                WireApi::Chat => codex_api::WireApi::Chat,
+                WireApi::Responses => codex_api::WireApi::Responses,
+            },
             headers,
             retry,
             stream_idle_timeout: self.stream_idle_timeout(),
@@ -315,6 +328,13 @@ impl ModelProviderInfo {
     }
 
     pub fn create_openai_provider(base_url: Option<String>) -> ModelProviderInfo {
+        Self::create_openai_provider_with_wire(base_url, WireApi::Responses)
+    }
+
+    pub fn create_openai_provider_with_wire(
+        base_url: Option<String>,
+        wire_api: WireApi,
+    ) -> ModelProviderInfo {
         ModelProviderInfo {
             name: OPENAI_PROVIDER_NAME.into(),
             base_url,
@@ -323,7 +343,7 @@ impl ModelProviderInfo {
             experimental_bearer_token: None,
             auth: None,
             aws: None,
-            wire_api: WireApi::Responses,
+            wire_api,
             query_params: None,
             http_headers: Some(
                 [("version".to_string(), env!("CARGO_PKG_VERSION").to_string())]
@@ -347,7 +367,7 @@ impl ModelProviderInfo {
             stream_idle_timeout_ms: None,
             websocket_connect_timeout_ms: None,
             requires_openai_auth: true,
-            supports_websockets: true,
+            supports_websockets: wire_api == WireApi::Responses,
         }
     }
 
@@ -390,7 +410,9 @@ impl ModelProviderInfo {
     }
 
     pub fn supports_remote_compaction(&self) -> bool {
-        self.is_openai() || is_azure_responses_provider(&self.name, self.base_url.as_deref())
+        self.wire_api == WireApi::Responses
+            && (self.is_openai()
+                || is_azure_responses_provider(&self.name, self.base_url.as_deref()))
     }
 
     pub fn has_command_auth(&self) -> bool {
@@ -408,8 +430,16 @@ pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
 pub fn built_in_model_providers(
     openai_base_url: Option<String>,
 ) -> HashMap<String, ModelProviderInfo> {
+    built_in_model_providers_with_wire(openai_base_url, WireApi::Responses)
+}
+
+/// Built-in provider list using an alternate default wire API where supported.
+pub fn built_in_model_providers_with_wire(
+    openai_base_url: Option<String>,
+    default_wire_api: WireApi,
+) -> HashMap<String, ModelProviderInfo> {
     use ModelProviderInfo as P;
-    let openai_provider = P::create_openai_provider(openai_base_url);
+    let openai_provider = P::create_openai_provider_with_wire(openai_base_url, default_wire_api);
     let amazon_bedrock_provider = P::create_amazon_bedrock_provider(/*aws*/ None);
 
     // We do not want to be in the business of adjucating which third-party
@@ -421,11 +451,11 @@ pub fn built_in_model_providers(
         (AMAZON_BEDROCK_PROVIDER_ID, amazon_bedrock_provider),
         (
             OLLAMA_OSS_PROVIDER_ID,
-            create_oss_provider(DEFAULT_OLLAMA_PORT, WireApi::Responses),
+            create_oss_provider(DEFAULT_OLLAMA_PORT, default_wire_api),
         ),
         (
             LMSTUDIO_OSS_PROVIDER_ID,
-            create_oss_provider(DEFAULT_LMSTUDIO_PORT, WireApi::Responses),
+            create_oss_provider(DEFAULT_LMSTUDIO_PORT, default_wire_api),
         ),
     ]
     .into_iter()

@@ -128,6 +128,7 @@ fn provider(name: &str) -> Provider {
         name: name.to_string(),
         base_url: "https://example.com/v1".to_string(),
         query_params: None,
+        wire: codex_api::WireApi::Responses,
         headers: HeaderMap::new(),
         retry: codex_api::RetryConfig {
             max_attempts: 1,
@@ -137,6 +138,13 @@ fn provider(name: &str) -> Provider {
             retry_transport: true,
         },
         stream_idle_timeout: Duration::from_millis(10),
+    }
+}
+
+fn provider_with_wire(name: &str, wire: codex_api::WireApi) -> Provider {
+    Provider {
+        wire,
+        ..provider(name)
     }
 }
 
@@ -269,6 +277,60 @@ async fn responses_client_uses_responses_path() -> Result<()> {
 
     let requests = state.take_stream_requests();
     assert_path_ends_with(&requests, "/responses");
+    Ok(())
+}
+
+#[tokio::test]
+async fn responses_client_uses_chat_completions_path_for_chat_wire_api() -> Result<()> {
+    let state = RecordingState::default();
+    let transport = RecordingTransport::new(state.clone());
+    let client = ResponsesClient::new(
+        transport,
+        provider_with_wire("openai", codex_api::WireApi::Chat),
+        Arc::new(NoAuth),
+    );
+
+    let request = ResponsesApiRequest {
+        model: "gpt-test".into(),
+        instructions: "system".into(),
+        input: vec![ResponseItem::Message {
+            id: None,
+            role: "user".to_string(),
+            content: vec![ContentItem::InputText {
+                text: "hello".to_string(),
+            }],
+            phase: None,
+        }],
+        tools: Vec::new(),
+        tool_choice: "auto".into(),
+        parallel_tool_calls: false,
+        reasoning: None,
+        store: false,
+        stream: true,
+        include: Vec::new(),
+        service_tier: None,
+        prompt_cache_key: None,
+        text: None,
+        client_metadata: None,
+    };
+
+    let _stream = client
+        .stream_request(request, ResponsesOptions::default())
+        .await?;
+
+    let requests = state.take_stream_requests();
+    assert_path_ends_with(&requests, "/chat/completions");
+    let body = requests[0]
+        .body
+        .as_ref()
+        .and_then(|body| match body {
+            RequestBody::Json(value) => Some(value),
+            _ => None,
+        })
+        .expect("json body");
+    assert_eq!(body["messages"][0]["role"], "system");
+    assert_eq!(body["messages"][1]["role"], "user");
+    assert_eq!(body["messages"][1]["content"], "hello");
     Ok(())
 }
 

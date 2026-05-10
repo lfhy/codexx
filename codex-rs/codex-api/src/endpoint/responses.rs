@@ -4,11 +4,14 @@ use crate::common::ResponsesApiRequest;
 use crate::endpoint::session::EndpointSession;
 use crate::error::ApiError;
 use crate::provider::Provider;
+use crate::provider::WireApi;
 use crate::requests::Compression;
 use crate::requests::attach_item_ids;
+use crate::requests::build_chat_request;
 use crate::requests::headers::build_session_headers;
 use crate::requests::headers::insert_header;
 use crate::requests::headers::subagent_header;
+use crate::sse::spawn_chat_stream;
 use crate::sse::spawn_response_stream;
 use crate::telemetry::SseTelemetry;
 use codex_client::HttpTransport;
@@ -81,6 +84,24 @@ impl<T: HttpTransport> ResponsesClient<T> {
             turn_state,
         } = options;
 
+        if self.session.provider().wire == WireApi::Chat {
+            let chat_request = build_chat_request(
+                &request,
+                session_id,
+                thread_id,
+                session_source,
+                extra_headers,
+            );
+            return self
+                .stream(
+                    chat_request.body,
+                    chat_request.headers,
+                    compression,
+                    turn_state,
+                )
+                .await;
+        }
+
         let mut body = serde_json::to_value(&request)
             .map_err(|e| ApiError::Stream(format!("failed to encode responses request: {e}")))?;
         if request.store && self.session.provider().is_azure_responses_endpoint() {
@@ -99,8 +120,11 @@ impl<T: HttpTransport> ResponsesClient<T> {
         self.stream(body, headers, compression, turn_state).await
     }
 
-    fn path() -> &'static str {
-        "responses"
+    fn path(&self) -> &'static str {
+        match self.session.provider().wire {
+            WireApi::Responses => "responses",
+            WireApi::Chat => "chat/completions",
+        }
     }
 
     #[instrument(
@@ -130,7 +154,7 @@ impl<T: HttpTransport> ResponsesClient<T> {
             .session
             .stream_with(
                 Method::POST,
-                Self::path(),
+                self.path(),
                 extra_headers,
                 Some(body),
                 |req| {
@@ -143,11 +167,19 @@ impl<T: HttpTransport> ResponsesClient<T> {
             )
             .await?;
 
-        Ok(spawn_response_stream(
-            stream_response,
-            self.session.provider().stream_idle_timeout,
-            self.sse_telemetry.clone(),
-            turn_state,
-        ))
+        Ok(match self.session.provider().wire {
+            WireApi::Responses => spawn_response_stream(
+                stream_response,
+                self.session.provider().stream_idle_timeout,
+                self.sse_telemetry.clone(),
+                turn_state,
+            ),
+            WireApi::Chat => spawn_chat_stream(
+                stream_response,
+                self.session.provider().stream_idle_timeout,
+                self.sse_telemetry.clone(),
+                turn_state,
+            ),
+        })
     }
 }

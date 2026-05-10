@@ -1662,6 +1662,7 @@ mod tests {
             name: "test".to_string(),
             base_url: format!("http://{addr}"),
             query_params: Some(HashMap::new()),
+            wire: crate::provider::WireApi::Responses,
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
                 max_attempts: 1,
@@ -1956,6 +1957,7 @@ mod tests {
             name: "test".to_string(),
             base_url: format!("http://{addr}"),
             query_params: Some(HashMap::new()),
+            wire: crate::provider::WireApi::Responses,
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
                 max_attempts: 1,
@@ -2071,6 +2073,7 @@ mod tests {
             name: "test".to_string(),
             base_url: format!("http://{addr}"),
             query_params: Some(HashMap::new()),
+            wire: crate::provider::WireApi::Responses,
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
                 max_attempts: 1,
@@ -2175,6 +2178,7 @@ mod tests {
             name: "test".to_string(),
             base_url: format!("http://{addr}"),
             query_params: Some(HashMap::new()),
+            wire: crate::provider::WireApi::Responses,
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
                 max_attempts: 1,
@@ -2265,6 +2269,7 @@ mod tests {
             name: "test".to_string(),
             base_url: format!("http://{addr}"),
             query_params: Some(HashMap::new()),
+            wire: crate::provider::WireApi::Responses,
             headers: HeaderMap::new(),
             retry: crate::provider::RetryConfig {
                 max_attempts: 1,

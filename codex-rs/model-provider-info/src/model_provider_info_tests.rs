@@ -107,7 +107,7 @@ env_http_headers = { "X-Example-Env-Header" = "EXAMPLE_ENV_VAR" }
 }
 
 #[test]
-fn test_deserialize_chat_wire_api_shows_helpful_error() {
+fn test_deserialize_chat_wire_api() {
     let provider_toml = r#"
 name = "OpenAI using Chat Completions"
 base_url = "https://api.openai.com/v1"
@@ -115,8 +115,8 @@ env_key = "OPENAI_API_KEY"
 wire_api = "chat"
         "#;
 
-    let err = toml::from_str::<ModelProviderInfo>(provider_toml).unwrap_err();
-    assert!(err.to_string().contains(CHAT_WIRE_API_REMOVED_ERROR));
+    let provider = toml::from_str::<ModelProviderInfo>(provider_toml).unwrap();
+    assert_eq!(provider.wire_api, WireApi::Chat);
 }
 
 #[test]
@@ -185,6 +185,13 @@ fn test_supports_remote_compaction_for_non_openai_non_azure_provider() {
         requires_openai_auth: false,
         supports_websockets: false,
     };
+
+    assert!(!provider.supports_remote_compaction());
+}
+
+#[test]
+fn test_supports_remote_compaction_disabled_for_chat_wire_api() {
+    let provider = ModelProviderInfo::create_openai_provider_with_wire(None, WireApi::Chat);
 
     assert!(!provider.supports_remote_compaction());
 }
@@ -295,6 +302,20 @@ fn test_built_in_model_providers_include_amazon_bedrock() {
             .get(AMAZON_BEDROCK_PROVIDER_ID)
             .map(ModelProviderInfo::is_amazon_bedrock),
         Some(true)
+    );
+}
+
+#[test]
+fn test_built_in_model_providers_with_chat_wire_override() {
+    let providers =
+        built_in_model_providers_with_wire(/*openai_base_url*/ None, WireApi::Chat);
+
+    assert_eq!(providers["openai"].wire_api, WireApi::Chat);
+    assert_eq!(providers["ollama"].wire_api, WireApi::Chat);
+    assert_eq!(providers["lmstudio"].wire_api, WireApi::Chat);
+    assert_eq!(
+        providers[AMAZON_BEDROCK_PROVIDER_ID].wire_api,
+        WireApi::Responses
     );
 }
 

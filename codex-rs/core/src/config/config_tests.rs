@@ -64,6 +64,7 @@ use codex_features::FeaturesToml;
 use codex_model_provider_info::LMSTUDIO_OSS_PROVIDER_ID;
 use codex_model_provider_info::OLLAMA_OSS_PROVIDER_ID;
 use codex_model_provider_info::WireApi;
+use codex_model_provider_info::built_in_model_providers;
 use codex_models_manager::bundled_models_response;
 use codex_protocol::config_types::ServiceTier;
 use codex_protocol::models::ActivePermissionProfile;
@@ -3932,6 +3933,28 @@ async fn responses_websocket_features_do_not_change_wire_api() -> std::io::Resul
 
         assert_eq!(config.model_provider.wire_api, WireApi::Responses);
     }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn top_level_wire_api_changes_built_in_provider_default() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+    let cfg = ConfigToml {
+        wire_api: Some(WireApi::Chat),
+        ..Default::default()
+    };
+
+    let config = Config::load_from_base_config_with_overrides(
+        cfg,
+        ConfigOverrides::default(),
+        codex_home.abs(),
+    )
+    .await?;
+
+    assert_eq!(config.model_provider_id, "openai");
+    assert_eq!(config.model_provider.wire_api, WireApi::Chat);
+    assert!(!config.model_provider.supports_websockets);
 
     Ok(())
 }

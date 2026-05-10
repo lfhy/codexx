@@ -8,6 +8,13 @@ use std::collections::HashMap;
 use std::time::Duration;
 use url::Url;
 
+/// Wire-level APIs supported by a `Provider`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WireApi {
+    Responses,
+    Chat,
+}
+
 /// High-level retry configuration for a provider.
 ///
 /// This is converted into a `RetryPolicy` used by `codex-client` to drive
@@ -44,6 +51,7 @@ pub struct Provider {
     pub name: String,
     pub base_url: String,
     pub query_params: Option<HashMap<String, String>>,
+    pub wire: WireApi,
     pub headers: HeaderMap,
     pub retry: RetryConfig,
     pub stream_idle_timeout: Duration,
@@ -86,7 +94,8 @@ impl Provider {
     }
 
     pub fn is_azure_responses_endpoint(&self) -> bool {
-        is_azure_responses_provider(&self.name, Some(&self.base_url))
+        self.wire == WireApi::Responses
+            && is_azure_responses_provider(&self.name, Some(&self.base_url))
     }
 
     pub fn websocket_url_for_path(&self, path: &str) -> Result<Url, url::ParseError> {

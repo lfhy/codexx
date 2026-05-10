@@ -3741,6 +3741,13 @@
       "description": "Wire protocol that the provider speaks.",
       "oneOf": [
         {
+          "description": "Regular Chat Completions compatible with `/v1/chat/completions`.",
+          "enum": [
+            "chat"
+          ],
+          "type": "string"
+        },
+        {
           "description": "The Responses API exposed by OpenAI at `/v1/responses`.",
           "enum": [
             "responses"
@@ -4583,6 +4590,14 @@
     "windows_wsl_setup_acknowledged": {
       "description": "Tracks whether the Windows onboarding screen has been acknowledged.",
       "type": "boolean"
+    },
+    "wire_api": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/WireApi"
+        }
+      ],
+      "description": "Global default wire API for built-in providers that do not specify one explicitly."
     },
     "zsh_path": {
       "allOf": [

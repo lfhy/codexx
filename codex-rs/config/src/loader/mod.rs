@@ -57,6 +57,7 @@ const PROJECT_LOCAL_CONFIG_DENYLIST: &[&str] = &[
     "openai_base_url",
     "chatgpt_base_url",
     "model_provider",
+    "wire_api",
     "model_providers",
     "notify",
     "profile",
