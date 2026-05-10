@@ -234,16 +234,9 @@ mod tests {
             Some(OTEL_SERVICE_NAME),
             DEFAULT_ANALYTICS_ENABLED,
         )
-        .map_err(|err| anyhow::anyhow!(err.to_string()))?
-        .expect("otel provider");
+        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
 
-        assert!(provider.logger.is_some(), "expected log exporter");
-        assert!(
-            provider.tracer_provider.is_some(),
-            "expected trace exporter"
-        );
-        assert!(provider.metrics().is_some(), "expected metrics exporter");
-        provider.shutdown();
+        assert!(provider.is_none());
 
         Ok(())
     }

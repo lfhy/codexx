@@ -22,8 +22,9 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
         lines.push(token_usage.to_string());
     }
 
+    let command_name = legacy_core::util::current_command_name();
     if let Some(resume_cmd) =
-        legacy_core::util::resume_command(/*thread_name*/ None, thread_id)
+        legacy_core::util::resume_command_for(&command_name, /*thread_name*/ None, thread_id)
     {
         let command = if color_enabled {
             format!("\u{1b}[36m{resume_cmd}\u{1b}[39m")

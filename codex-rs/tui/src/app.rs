@@ -389,11 +389,31 @@ fn session_summary(
     thread_name: Option<String>,
     rollout_path: Option<&Path>,
 ) -> Option<SessionSummary> {
+    let command_name = crate::legacy_core::util::current_command_name();
+    session_summary_with_command_name(
+        token_usage,
+        thread_id,
+        thread_name,
+        rollout_path,
+        &command_name,
+    )
+}
+
+fn session_summary_with_command_name(
+    token_usage: TokenUsage,
+    thread_id: Option<ThreadId>,
+    thread_name: Option<String>,
+    rollout_path: Option<&Path>,
+    command_name: &str,
+) -> Option<SessionSummary> {
     let usage_line = (!token_usage.is_zero()).then(|| token_usage.to_string());
     let thread_id =
         resumable_thread(thread_id, thread_name, rollout_path).map(|thread| thread.thread_id);
-    let resume_command =
-        crate::legacy_core::util::resume_command(/*thread_name*/ None, thread_id);
+    let resume_command = crate::legacy_core::util::resume_command_for(
+        command_name,
+        /*thread_name*/ None,
+        thread_id,
+    );
 
     if usage_line.is_none() && resume_command.is_none() {
         return None;

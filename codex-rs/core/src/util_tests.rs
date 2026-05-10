@@ -470,3 +470,10 @@ fn resume_command_quotes_thread_name_when_needed() {
     let command = resume_command(Some("quote'case"), /*thread_id*/ None);
     assert_eq!(command, Some("codex resume \"quote'case\"".to_string()));
 }
+
+#[test]
+fn resume_command_for_uses_supplied_command_name() {
+    let thread_id = ThreadId::from_string("123e4567-e89b-12d3-a456-426614174000").unwrap();
+    let command = resume_command_for("codexx", Some("my-thread"), Some(thread_id));
+    assert_eq!(command, Some("codexx resume my-thread".to_string()));
+}

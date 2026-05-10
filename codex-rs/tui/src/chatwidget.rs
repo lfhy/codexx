@@ -9260,8 +9260,10 @@ impl ChatWidget {
     }
 
     fn rename_confirmation_cell(name: &str, thread_id: Option<ThreadId>) -> PlainHistoryCell {
-        let resume_cmd = crate::legacy_core::util::resume_command(Some(name), thread_id)
-            .unwrap_or_else(|| format!("codex resume {name}"));
+        let command_name = crate::legacy_core::util::current_command_name();
+        let resume_cmd =
+            crate::legacy_core::util::resume_command_for(&command_name, Some(name), thread_id)
+                .unwrap_or_else(|| format!("{command_name} resume {name}"));
         let name = name.to_string();
         let line = vec![
             "• ".into(),

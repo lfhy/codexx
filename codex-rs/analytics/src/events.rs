@@ -49,11 +49,6 @@ pub enum AppServerRpcTransport {
 }
 
 #[derive(Serialize)]
-pub(crate) struct TrackEventsRequest {
-    pub(crate) events: Vec<TrackEventRequest>,
-}
-
-#[derive(Serialize)]
 #[serde(untagged)]
 pub(crate) enum TrackEventRequest {
     SkillInvocation(SkillInvocationEventRequest),
@@ -80,12 +75,6 @@ pub(crate) enum TrackEventRequest {
     PluginUninstalled(CodexPluginEventRequest),
     PluginEnabled(CodexPluginEventRequest),
     PluginDisabled(CodexPluginEventRequest),
-}
-
-impl TrackEventRequest {
-    pub(crate) fn should_send_in_isolated_request(&self) -> bool {
-        matches!(self, Self::AcceptedLineFingerprints(_))
-    }
 }
 
 #[derive(Serialize)]

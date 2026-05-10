@@ -5341,11 +5341,12 @@ async fn backtrack_esc_does_not_steal_empty_vim_insert_escape() {
 #[tokio::test]
 async fn session_summary_skips_when_no_usage_or_resume_hint() {
     assert!(
-        session_summary(
+        session_summary_with_command_name(
             TokenUsage::default(),
             /*thread_id*/ None,
             /*thread_name*/ None,
             /*rollout_path*/ None,
+            "codex",
         )
         .is_none()
     );
@@ -5359,11 +5360,12 @@ async fn session_summary_skips_resume_hint_until_rollout_exists() {
     let rollout_path = temp_dir.path().join("rollout.jsonl");
 
     assert!(
-        session_summary(
+        session_summary_with_command_name(
             usage,
             Some(conversation),
             /*thread_name*/ None,
             Some(&rollout_path),
+            "codex",
         )
         .is_none()
     );
@@ -5382,11 +5384,12 @@ async fn session_summary_includes_resume_hint_for_persisted_rollout() {
     let rollout_path = temp_dir.path().join("rollout.jsonl");
     std::fs::write(&rollout_path, "{}\n").expect("write rollout");
 
-    let summary = session_summary(
+    let summary = session_summary_with_command_name(
         usage,
         Some(conversation),
         /*thread_name*/ None,
         Some(&rollout_path),
+        "codex",
     )
     .expect("summary");
     assert_eq!(
@@ -5412,11 +5415,12 @@ async fn session_summary_uses_id_even_when_thread_has_name() {
     let rollout_path = temp_dir.path().join("rollout.jsonl");
     std::fs::write(&rollout_path, "{}\n").expect("write rollout");
 
-    let summary = session_summary(
+    let summary = session_summary_with_command_name(
         usage,
         Some(conversation),
         Some("my-session".to_string()),
         Some(&rollout_path),
+        "codex",
     )
     .expect("summary");
     assert_eq!(

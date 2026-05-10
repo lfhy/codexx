@@ -6,14 +6,8 @@ use rand::Rng;
 const ANNOUNCEMENT_TIP_URL: &str =
     "https://raw.githubusercontent.com/openai/codex/main/announcement_tip.toml";
 
-const IS_MACOS: bool = cfg!(target_os = "macos");
-const IS_WINDOWS: bool = cfg!(target_os = "windows");
-
-const APP_TOOLTIP: &str = "Try the **Codex App**. Run 'codex app' or visit https://chatgpt.com/codex?app-landing-page=true";
 const FAST_TOOLTIP: &str =
     "*New* Use **/fast** to enable our fastest inference with increased plan usage.";
-const OTHER_TOOLTIP: &str = "*New* Build faster with the **Codex App**. Run 'codex app' or visit https://chatgpt.com/codex?app-landing-page=true";
-const OTHER_TOOLTIP_NON_MAC: &str = "*New* Build faster with Codex.";
 const FREE_GO_TOOLTIP: &str =
     "*New* For a limited time, Codex is included in your plan for free – let’s build together.";
 
@@ -27,7 +21,7 @@ lazy_static! {
             if line.is_empty() || line.starts_with('#') {
                 return false;
             }
-            if !IS_MACOS && !IS_WINDOWS && line.contains("codex app") {
+            if line.contains("codex app") {
                 return false;
             }
             true
@@ -73,40 +67,21 @@ pub(crate) fn get_tooltip(plan: Option<PlanType>, fast_mode_enabled: bool) -> Op
             Some(PlanType::Go) | Some(PlanType::Free) => {
                 return Some(FREE_GO_TOOLTIP.to_string());
             }
-            _ => {
-                let tooltip = if IS_MACOS {
-                    OTHER_TOOLTIP
-                } else {
-                    OTHER_TOOLTIP_NON_MAC
-                };
-                return Some(tooltip.to_string());
-            }
+            _ => {}
         }
     }
 
     pick_tooltip(&mut rng).map(str::to_string)
 }
 
-fn paid_app_tooltip() -> Option<&'static str> {
-    if IS_MACOS || IS_WINDOWS {
-        Some(APP_TOOLTIP)
-    } else {
-        None
-    }
-}
-
-/// Paid users spend most startup sessions in a dedicated promo slot rather than the
-/// generic random tip pool. Keep this business logic explicit: we currently split
-/// that slot between the app promo and Fast mode, but suppress the Fast promo once
-/// the user already has Fast mode enabled.
 fn pick_paid_tooltip<R: Rng + ?Sized>(
-    rng: &mut R,
+    _rng: &mut R,
     fast_mode_enabled: bool,
 ) -> Option<&'static str> {
-    if fast_mode_enabled || rng.random_bool(0.5) {
-        paid_app_tooltip()
-    } else {
+    if !fast_mode_enabled {
         Some(FAST_TOOLTIP)
+    } else {
+        None
     }
 }
 
@@ -347,7 +322,7 @@ mod tests {
     }
 
     #[test]
-    fn paid_tooltip_pool_rotates_between_promos() {
+    fn paid_tooltip_pool_returns_fast_tooltip_when_available() {
         let mut seen = std::collections::BTreeSet::new();
         for seed in 0..32 {
             let mut rng = StdRng::seed_from_u64(seed);
@@ -356,19 +331,19 @@ mod tests {
             ));
         }
 
-        let expected = std::collections::BTreeSet::from([paid_app_tooltip(), Some(FAST_TOOLTIP)]);
+        let expected = std::collections::BTreeSet::from([Some(FAST_TOOLTIP)]);
         assert_eq!(seen, expected);
     }
 
     #[test]
-    fn paid_tooltip_pool_skips_fast_when_fast_mode_is_enabled() {
+    fn paid_tooltip_pool_returns_no_promo_when_fast_mode_is_enabled() {
         let mut seen = std::collections::BTreeSet::new();
         for seed in 0..8 {
             let mut rng = StdRng::seed_from_u64(seed);
             seen.insert(pick_paid_tooltip(&mut rng, /*fast_mode_enabled*/ true));
         }
 
-        let expected = std::collections::BTreeSet::from([paid_app_tooltip()]);
+        let expected = std::collections::BTreeSet::from([None]);
         assert_eq!(seen, expected);
         assert!(!seen.contains(&Some(FAST_TOOLTIP)));
     }

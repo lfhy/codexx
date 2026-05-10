@@ -582,7 +582,11 @@ fn parse_socket_path(raw: &str) -> Result<AbsolutePathBuf, String> {
         .map_err(|err| format!("failed to resolve socket path `{raw}`: {err}"))
 }
 
-fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
+fn format_exit_messages_with_command_name(
+    exit_info: AppExitInfo,
+    color_enabled: bool,
+    command_name: &str,
+) -> Vec<String> {
     let AppExitInfo {
         token_usage,
         thread_id: conversation_id,
@@ -594,9 +598,11 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
         lines.push(token_usage.to_string());
     }
 
-    if let Some(resume_cmd) =
-        codex_core::util::resume_command(/*thread_name*/ None, conversation_id)
-    {
+    if let Some(resume_cmd) = codex_core::util::resume_command_for(
+        command_name,
+        /*thread_name*/ None,
+        conversation_id,
+    ) {
         let command = if color_enabled {
             resume_cmd.cyan().to_string()
         } else {
@@ -606,6 +612,11 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
     }
 
     lines
+}
+
+fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<String> {
+    let command_name = codex_core::util::current_command_name();
+    format_exit_messages_with_command_name(exit_info, color_enabled, &command_name)
 }
 
 /// Handle the app exit and print the results. Optionally run the update action.
@@ -2190,7 +2201,9 @@ mod tests {
             update_action: None,
             exit_reason: ExitReason::UserRequested,
         };
-        let lines = format_exit_messages(exit_info, /*color_enabled*/ false);
+        let lines = format_exit_messages_with_command_name(
+            exit_info, /*color_enabled*/ false, "codex",
+        );
         assert!(lines.is_empty());
     }
 
@@ -2200,7 +2213,9 @@ mod tests {
             Some("123e4567-e89b-12d3-a456-426614174000"),
             /*thread_name*/ None,
         );
-        let lines = format_exit_messages(exit_info, /*color_enabled*/ false);
+        let lines = format_exit_messages_with_command_name(
+            exit_info, /*color_enabled*/ false, "codex",
+        );
         assert_eq!(
             lines,
             vec![
@@ -2217,7 +2232,8 @@ mod tests {
             Some("123e4567-e89b-12d3-a456-426614174000"),
             /*thread_name*/ None,
         );
-        let lines = format_exit_messages(exit_info, /*color_enabled*/ true);
+        let lines =
+            format_exit_messages_with_command_name(exit_info, /*color_enabled*/ true, "codex");
         assert_eq!(lines.len(), 2);
         assert!(lines[1].contains("\u{1b}[36m"));
     }
@@ -2228,7 +2244,9 @@ mod tests {
             Some("123e4567-e89b-12d3-a456-426614174000"),
             Some("my-thread"),
         );
-        let lines = format_exit_messages(exit_info, /*color_enabled*/ false);
+        let lines = format_exit_messages_with_command_name(
+            exit_info, /*color_enabled*/ false, "codex",
+        );
         assert_eq!(
             lines,
             vec![

@@ -844,8 +844,15 @@ async fn live_app_server_thread_name_update_shows_resume_hint() {
     let cells = drain_insert_history(&mut rx);
     assert_eq!(cells.len(), 1);
     let rendered = lines_to_single_string(&cells[0]);
+    let command_name = crate::legacy_core::util::current_command_name();
+    let expected_resume_cmd = crate::legacy_core::util::resume_command_for(
+        &command_name,
+        Some("review-fix"),
+        Some(thread_id),
+    )
+    .expect("thread rename should produce a resume command");
     assert!(rendered.contains("Thread renamed to review-fix"));
-    assert!(rendered.contains("codex resume review-fix"));
+    assert!(rendered.contains(&expected_resume_cmd));
 }
 
 #[tokio::test]

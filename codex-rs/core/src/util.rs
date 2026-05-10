@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -10,6 +11,7 @@ use codex_shell_command::parse_command::shlex_join;
 
 const INITIAL_DELAY_MS: u64 = 200;
 const BACKOFF_FACTOR: f64 = 2.0;
+const DEFAULT_COMMAND_NAME: &str = "codex";
 
 /// Emit structured feedback metadata as key/value pairs.
 ///
@@ -118,7 +120,23 @@ pub fn normalize_thread_name(name: &str) -> Option<String> {
     }
 }
 
-pub fn resume_command(thread_name: Option<&str>, thread_id: Option<ThreadId>) -> Option<String> {
+fn command_name_from_argv0(argv0: Option<&OsStr>) -> String {
+    argv0
+        .and_then(|argv0| Path::new(argv0).file_name())
+        .and_then(|file_name| file_name.to_str())
+        .filter(|name| !name.is_empty())
+        .map_or_else(|| DEFAULT_COMMAND_NAME.to_string(), str::to_string)
+}
+
+pub fn current_command_name() -> String {
+    command_name_from_argv0(std::env::args_os().next().as_deref())
+}
+
+pub fn resume_command_for(
+    command_name: &str,
+    thread_name: Option<&str>,
+    thread_id: Option<ThreadId>,
+) -> Option<String> {
     let resume_target = thread_name
         .filter(|name| !name.is_empty())
         .map(str::to_string)
@@ -127,11 +145,15 @@ pub fn resume_command(thread_name: Option<&str>, thread_id: Option<ThreadId>) ->
         let needs_double_dash = target.starts_with('-');
         let escaped = shlex_join(&[target]);
         if needs_double_dash {
-            format!("codex resume -- {escaped}")
+            format!("{command_name} resume -- {escaped}")
         } else {
-            format!("codex resume {escaped}")
+            format!("{command_name} resume {escaped}")
         }
     })
+}
+
+pub fn resume_command(thread_name: Option<&str>, thread_id: Option<ThreadId>) -> Option<String> {
+    resume_command_for(DEFAULT_COMMAND_NAME, thread_name, thread_id)
 }
 
 #[cfg(test)]
