@@ -470,6 +470,9 @@ pub struct Config {
     /// Compact prompt override.
     pub compact_prompt: Option<String>,
 
+    /// Automatically trigger the `/commit` prompt flow after a goal completes.
+    pub auto_commit: bool,
+
     /// Optional commit attribution text for commit message co-author trailers.
     /// This top-level setting only takes effect when `[features].codex_git_commit`
     /// is enabled.
@@ -3011,6 +3014,7 @@ impl Config {
             personality,
             developer_instructions,
             compact_prompt,
+            auto_commit: config_profile.auto_commit.or(cfg.auto_commit).unwrap_or(false),
             commit_attribution,
             include_permissions_instructions,
             include_apps_instructions,

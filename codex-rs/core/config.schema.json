@@ -341,6 +341,10 @@
         "approvals_reviewer": {
           "$ref": "#/definitions/ApprovalsReviewer"
         },
+        "auto_commit": {
+          "description": "When true, automatically trigger the `/commit` prompt flow after a goal completes.",
+          "type": "boolean"
+        },
         "chatgpt_base_url": {
           "type": "string"
         },
@@ -3817,6 +3821,10 @@
       ],
       "default": null,
       "description": "Machine-local realtime audio device preferences used by realtime voice."
+    },
+    "auto_commit": {
+      "description": "When true, automatically trigger the `/commit` prompt flow after a goal completes.",
+      "type": "boolean"
     },
     "auto_review": {
       "allOf": [

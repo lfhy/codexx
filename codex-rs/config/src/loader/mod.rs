@@ -59,6 +59,7 @@ const PROJECT_LOCAL_CONFIG_DENYLIST: &[&str] = &[
     "model_provider",
     "wire_api",
     "yolo",
+    "auto_commit",
     "model_providers",
     "notify",
     "profile",

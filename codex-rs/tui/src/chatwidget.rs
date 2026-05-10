@@ -9055,13 +9055,24 @@ impl ChatWidget {
             self.update_collaboration_mode_indicator();
             return;
         }
+        let previous_status = self
+            .current_goal_status
+            .as_ref()
+            .map(GoalStatusState::status);
         if goal.status == AppThreadGoalStatus::BudgetLimited
-            && let Some(turn_id) = turn_id
+            && let Some(turn_id) = turn_id.as_ref()
         {
-            self.turn_lifecycle.mark_budget_limited(turn_id);
+            self.turn_lifecycle.mark_budget_limited(turn_id.to_string());
         }
+        let should_auto_commit = self.config.auto_commit
+            && goal.status == AppThreadGoalStatus::Complete
+            && turn_id.is_some()
+            && previous_status.is_some_and(|status| status != AppThreadGoalStatus::Complete);
         self.current_goal_status = Some(GoalStatusState::new(goal, Instant::now()));
         self.update_collaboration_mode_indicator();
+        if should_auto_commit {
+            self.maybe_submit_commit_prompt(/*show_skip_message*/ false);
+        }
     }
 
     fn personality_label(personality: Personality) -> &'static str {

@@ -47,6 +47,10 @@ fn recall_latest_after_clearing(chat: &mut ChatWidget) -> String {
     chat.bottom_pane.composer_text()
 }
 
+fn mark_git_repo(root: &std::path::Path) {
+    std::fs::create_dir(root.join(".git")).expect("create .git directory");
+}
+
 fn next_add_to_history_event(rx: &mut tokio::sync::mpsc::UnboundedReceiver<AppEvent>) -> String {
     loop {
         match rx.try_recv() {
@@ -559,6 +563,129 @@ async fn slash_init_skips_when_project_doc_exists() {
         "existing instructions"
     );
     assert_eq!(recall_latest_after_clearing(&mut chat), "/init");
+}
+
+#[tokio::test]
+async fn slash_commit_skips_outside_git_repository() {
+    let (mut chat, mut rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    let tempdir = tempdir().unwrap();
+    let cwd = tempdir.path().to_path_buf().abs();
+    chat.config.cwd = cwd.clone();
+    chat.current_cwd = Some(cwd.to_path_buf());
+
+    submit_composer_text(&mut chat, "/commit");
+
+    match op_rx.try_recv() {
+        Err(TryRecvError::Empty) => {}
+        other => panic!("expected no Codex op to be sent, got {other:?}"),
+    }
+
+    let cells = drain_insert_history(&mut rx);
+    assert_eq!(cells.len(), 1, "expected one info message");
+    let rendered = lines_to_single_string(&cells[0]);
+    assert!(
+        rendered.contains("Skipping /commit"),
+        "info message should explain why /commit was skipped: {rendered:?}"
+    );
+    assert!(
+        rendered.contains("git repository"),
+        "info message should mention the missing git repository: {rendered:?}"
+    );
+    assert_eq!(recall_latest_after_clearing(&mut chat), "/commit");
+}
+
+#[tokio::test]
+async fn slash_commit_submits_prompt_inside_git_repository() {
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    let tempdir = tempdir().unwrap();
+    mark_git_repo(tempdir.path());
+    let cwd = tempdir.path().to_path_buf().abs();
+    chat.config.cwd = cwd.clone();
+    chat.current_cwd = Some(cwd.to_path_buf());
+    chat.thread_id = Some(ThreadId::new());
+
+    submit_composer_text(&mut chat, "/commit");
+
+    match next_submit_op(&mut op_rx) {
+        Op::UserTurn { items, .. } => assert_eq!(
+            items,
+            vec![UserInput::Text {
+                text: include_str!("../../../prompt_for_commit_command.md").to_string(),
+                text_elements: Vec::new(),
+            }]
+        ),
+        other => panic!("expected /commit to submit a prompt, got {other:?}"),
+    }
+    assert_eq!(recall_latest_after_clearing(&mut chat), "/commit");
+}
+
+#[tokio::test]
+async fn auto_commit_queues_prompt_after_goal_completion() {
+    let (mut chat, _rx, mut op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+    let tempdir = tempdir().unwrap();
+    mark_git_repo(tempdir.path());
+    let cwd = tempdir.path().to_path_buf().abs();
+    chat.config.cwd = cwd.clone();
+    chat.current_cwd = Some(cwd.to_path_buf());
+    chat.config.auto_commit = true;
+    chat.set_feature_enabled(Feature::Goals, /*enabled*/ true);
+    let thread_id = ThreadId::new();
+    chat.thread_id = Some(thread_id);
+
+    handle_turn_started(&mut chat, "turn-1");
+    chat.handle_server_notification(
+        ServerNotification::ThreadGoalUpdated(
+            codex_app_server_protocol::ThreadGoalUpdatedNotification {
+                thread_id: thread_id.to_string(),
+                turn_id: None,
+                goal: codex_app_server_protocol::ThreadGoal {
+                    thread_id: thread_id.to_string(),
+                    objective: "finish the refactor".to_string(),
+                    status: codex_app_server_protocol::ThreadGoalStatus::Active,
+                    token_budget: None,
+                    tokens_used: 0,
+                    time_used_seconds: 0,
+                    created_at: 1,
+                    updated_at: 1,
+                },
+            },
+        ),
+        /*replay_kind*/ None,
+    );
+    chat.handle_server_notification(
+        ServerNotification::ThreadGoalUpdated(
+            codex_app_server_protocol::ThreadGoalUpdatedNotification {
+                thread_id: thread_id.to_string(),
+                turn_id: Some("turn-1".to_string()),
+                goal: codex_app_server_protocol::ThreadGoal {
+                    thread_id: thread_id.to_string(),
+                    objective: "finish the refactor".to_string(),
+                    status: codex_app_server_protocol::ThreadGoalStatus::Complete,
+                    token_budget: None,
+                    tokens_used: 0,
+                    time_used_seconds: 0,
+                    created_at: 1,
+                    updated_at: 2,
+                },
+            },
+        ),
+        /*replay_kind*/ None,
+    );
+
+    assert_no_submit_op(&mut op_rx);
+
+    handle_turn_completed(&mut chat, "turn-1", /*duration_ms*/ None);
+
+    match next_submit_op(&mut op_rx) {
+        Op::UserTurn { items, .. } => assert_eq!(
+            items,
+            vec![UserInput::Text {
+                text: include_str!("../../../prompt_for_commit_command.md").to_string(),
+                text_elements: Vec::new(),
+            }]
+        ),
+        other => panic!("expected auto_commit to submit a prompt, got {other:?}"),
+    }
 }
 
 #[tokio::test]

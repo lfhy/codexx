@@ -106,6 +106,9 @@ pub struct ConfigToml {
     /// `sandbox_mode = "danger-full-access"`).
     pub yolo: Option<bool>,
 
+    /// When true, automatically trigger the `/commit` prompt flow after a goal completes.
+    pub auto_commit: Option<bool>,
+
     /// Size of the context window for the model, in tokens.
     pub model_context_window: Option<i64>,
 

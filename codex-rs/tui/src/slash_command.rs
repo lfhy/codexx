@@ -33,6 +33,7 @@ pub enum SlashCommand {
     Resume,
     Fork,
     Init,
+    Commit,
     Compact,
     Plan,
     Goal,
@@ -80,6 +81,7 @@ impl SlashCommand {
             SlashCommand::Feedback => "send logs to maintainers",
             SlashCommand::New => "start a new chat during a conversation",
             SlashCommand::Init => "create an AGENTS.md file with instructions for Codex",
+            SlashCommand::Commit => "generate a commit message from the current changes",
             SlashCommand::Compact => "summarize conversation to prevent hitting the context limit",
             SlashCommand::Review => "review my current changes and find issues",
             SlashCommand::Rename => "rename the current thread",
@@ -177,6 +179,7 @@ impl SlashCommand {
             | SlashCommand::Resume
             | SlashCommand::Fork
             | SlashCommand::Init
+            | SlashCommand::Commit
             | SlashCommand::Compact
             | SlashCommand::Model
             | SlashCommand::Personality

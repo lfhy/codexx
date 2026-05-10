@@ -3844,6 +3844,54 @@ yolo = true
 }
 
 #[tokio::test]
+async fn project_local_auto_commit_is_ignored() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+    let workspace = TempDir::new()?;
+    let workspace_key = workspace.path().to_string_lossy().replace('\\', "\\\\");
+    std::fs::write(
+        codex_home.path().join(CONFIG_TOML_FILE),
+        format!(
+            r#"
+[projects."{workspace_key}"]
+trust_level = "trusted"
+"#,
+        ),
+    )?;
+    let project_config_dir = workspace.path().join(".codex");
+    std::fs::create_dir_all(&project_config_dir)?;
+    std::fs::write(
+        project_config_dir.join(CONFIG_TOML_FILE),
+        r#"
+auto_commit = true
+"#,
+    )?;
+
+    let config = ConfigBuilder::without_managed_config_for_tests()
+        .codex_home(codex_home.path().to_path_buf())
+        .harness_overrides(ConfigOverrides {
+            cwd: Some(workspace.path().to_path_buf()),
+            ..Default::default()
+        })
+        .build()
+        .await?;
+
+    assert!(
+        !config.auto_commit,
+        "project-local auto_commit should be ignored"
+    );
+    assert!(
+        config
+            .startup_warnings
+            .iter()
+            .any(|warning| warning.contains("auto_commit")),
+        "expected warning for ignored project-local auto_commit key: {:?}",
+        config.startup_warnings
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn profile_sandbox_mode_overrides_base() -> std::io::Result<()> {
     let codex_home = TempDir::new()?;
     let mut profiles = HashMap::new();
@@ -3872,6 +3920,55 @@ async fn profile_sandbox_mode_overrides_base() -> std::io::Result<()> {
         &config.legacy_sandbox_policy(),
         &SandboxPolicy::DangerFullAccess
     ));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn top_level_auto_commit_enables_auto_commit() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+    let cfg = ConfigToml {
+        auto_commit: Some(true),
+        ..Default::default()
+    };
+
+    let config = Config::load_from_base_config_with_overrides(
+        cfg,
+        ConfigOverrides::default(),
+        codex_home.abs(),
+    )
+    .await?;
+
+    assert!(config.auto_commit);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn profile_auto_commit_enables_auto_commit() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+    let mut profiles = HashMap::new();
+    profiles.insert(
+        "work".to_string(),
+        ConfigProfile {
+            auto_commit: Some(true),
+            ..Default::default()
+        },
+    );
+    let cfg = ConfigToml {
+        profiles,
+        profile: Some("work".to_string()),
+        ..Default::default()
+    };
+
+    let config = Config::load_from_base_config_with_overrides(
+        cfg,
+        ConfigOverrides::default(),
+        codex_home.abs(),
+    )
+    .await?;
+
+    assert!(config.auto_commit);
 
     Ok(())
 }
@@ -7223,6 +7320,7 @@ async fn test_precedence_fixture_with_o3_profile() -> std::io::Result<()> {
             chatgpt_base_url: "https://chatgpt.com/backend-api/".to_string(),
             apps_mcp_path_override: None,
             realtime_audio: RealtimeAudioConfig::default(),
+            auto_commit: false,
             experimental_realtime_start_instructions: None,
             experimental_realtime_ws_base_url: None,
             experimental_realtime_ws_model: None,
@@ -7643,6 +7741,7 @@ async fn test_precedence_fixture_with_gpt3_profile() -> std::io::Result<()> {
         chatgpt_base_url: "https://chatgpt.com/backend-api/".to_string(),
         apps_mcp_path_override: None,
         realtime_audio: RealtimeAudioConfig::default(),
+        auto_commit: false,
         experimental_realtime_start_instructions: None,
         experimental_realtime_ws_base_url: None,
         experimental_realtime_ws_model: None,
@@ -7801,6 +7900,7 @@ async fn test_precedence_fixture_with_zdr_profile() -> std::io::Result<()> {
         chatgpt_base_url: "https://chatgpt.com/backend-api/".to_string(),
         apps_mcp_path_override: None,
         realtime_audio: RealtimeAudioConfig::default(),
+        auto_commit: false,
         experimental_realtime_start_instructions: None,
         experimental_realtime_ws_base_url: None,
         experimental_realtime_ws_model: None,
@@ -7944,6 +8044,7 @@ async fn test_precedence_fixture_with_gpt5_profile() -> std::io::Result<()> {
         chatgpt_base_url: "https://chatgpt.com/backend-api/".to_string(),
         apps_mcp_path_override: None,
         realtime_audio: RealtimeAudioConfig::default(),
+        auto_commit: false,
         experimental_realtime_start_instructions: None,
         experimental_realtime_ws_base_url: None,
         experimental_realtime_ws_model: None,

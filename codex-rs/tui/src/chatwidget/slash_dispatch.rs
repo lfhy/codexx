@@ -13,6 +13,8 @@ use crate::bottom_pane::slash_commands::BuiltinCommandFlags;
 use crate::bottom_pane::slash_commands::ServiceTierCommand;
 use crate::bottom_pane::slash_commands::SlashCommandItem;
 use crate::bottom_pane::slash_commands::find_slash_command;
+use codex_git_utils::get_git_repo_root;
+use std::path::Path;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SlashCommandDispatchSource {
@@ -36,6 +38,7 @@ const SIDE_SLASH_COMMAND_UNAVAILABLE_HINT: &str = "Press Esc to return to the ma
 const GOAL_USAGE: &str = "Usage: /goal <objective>";
 const GOAL_USAGE_HINT: &str = "Example: /goal improve benchmark coverage";
 const RAW_USAGE: &str = "Usage: /raw [on|off]";
+const COMMIT_PROMPT: &str = include_str!("../../prompt_for_commit_command.md");
 
 impl ChatWidget {
     /// Dispatch a bare slash command and record its staged local-history entry.
@@ -127,6 +130,28 @@ impl ChatWidget {
             .send(AppEvent::RawOutputModeChanged { enabled });
     }
 
+    fn slash_command_cwd(&self) -> &Path {
+        self.current_cwd
+            .as_deref()
+            .unwrap_or(self.config.cwd.as_path())
+    }
+
+    pub(super) fn maybe_submit_commit_prompt(&mut self, show_skip_message: bool) -> bool {
+        if get_git_repo_root(self.slash_command_cwd()).is_none() {
+            if show_skip_message {
+                self.add_info_message(
+                    "Skipping /commit because the current directory is not inside a git repository."
+                        .to_string(),
+                    /*hint*/ None,
+                );
+            }
+            return false;
+        }
+
+        self.queue_user_message(COMMIT_PROMPT.to_string().into());
+        true
+    }
+
     pub(super) fn dispatch_command(&mut self, cmd: SlashCommand) {
         if !self.ensure_slash_command_allowed_in_side_conversation(cmd) {
             return;
@@ -182,6 +207,9 @@ impl ChatWidget {
                 }
                 const INIT_PROMPT: &str = include_str!("../../prompt_for_init_command.md");
                 self.submit_user_message(INIT_PROMPT.to_string().into());
+            }
+            SlashCommand::Commit => {
+                self.maybe_submit_commit_prompt(/*show_skip_message*/ true);
             }
             SlashCommand::Compact => {
                 self.clear_token_usage();
@@ -931,6 +959,7 @@ impl ChatWidget {
             | SlashCommand::Resume
             | SlashCommand::Fork
             | SlashCommand::Init
+            | SlashCommand::Commit
             | SlashCommand::Compact
             | SlashCommand::Review
             | SlashCommand::Model

@@ -32,6 +32,8 @@ pub struct ConfigProfile {
     /// When true, enable YOLO mode (`approval_policy = "never"` and
     /// `sandbox_mode = "danger-full-access"`).
     pub yolo: Option<bool>,
+    /// When true, automatically trigger the `/commit` prompt flow after a goal completes.
+    pub auto_commit: Option<bool>,
     pub approval_policy: Option<AskForApproval>,
     pub approvals_reviewer: Option<ApprovalsReviewer>,
     pub sandbox_mode: Option<SandboxMode>,
