@@ -1185,11 +1185,14 @@ async fn reload_user_config_layer_updates_effective_apps_config() {
     let codex_home = session.codex_home().await;
     std::fs::create_dir_all(&codex_home).expect("create codex home");
     let config_toml_path = codex_home.join(CONFIG_TOML_FILE);
+    let codexx_toml_path = codex_home.join(codex_config::CODEXX_CONFIG_TOML_FILE);
     std::fs::write(
         &config_toml_path,
         "[apps.calendar]\nenabled = false\ndestructive_enabled = false\n",
     )
     .expect("write user config");
+    std::fs::write(&codexx_toml_path, "[apps.calendar]\nenabled = true\n")
+        .expect("write codexx config");
 
     session.reload_user_config_layer().await;
 
@@ -1208,7 +1211,7 @@ async fn reload_user_config_layer_updates_effective_apps_config() {
         .get("calendar")
         .expect("calendar app config exists");
 
-    assert!(!app.enabled);
+    assert!(app.enabled);
     assert_eq!(app.destructive_enabled, Some(false));
 }
 

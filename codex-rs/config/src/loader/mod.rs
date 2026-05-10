@@ -3,6 +3,8 @@ mod layer_io;
 mod macos;
 
 use self::layer_io::LoadedConfigLayers;
+use self::layer_io::read_config_from_path;
+use crate::CODEXX_CONFIG_TOML_FILE;
 use crate::CONFIG_TOML_FILE;
 use crate::cloud_requirements::CloudRequirementsLoader;
 use crate::config_requirements::ConfigRequirementsToml;
@@ -85,6 +87,7 @@ async fn first_layer_config_error_from_entries(layers: &[ConfigLayerEntry]) -> O
 /// - system    `/etc/codex/config.toml` (Unix) or
 ///   `%ProgramData%\OpenAI\Codex\config.toml` (Windows)
 /// - user      `${CODEX_HOME}/config.toml`
+/// - user     `${CODEX_HOME}/codexx.toml` (fork-specific override)
 /// - cwd       `${PWD}/config.toml` (loaded but disabled when the directory is untrusted)
 /// - tree      parent directories up to root looking for `./.codex/config.toml` (loaded but disabled when untrusted)
 /// - repo      `$(git rev-parse --show-toplevel)/.codex/config.toml` (loaded but disabled when untrusted)
@@ -189,9 +192,10 @@ pub async fn load_config_layers_state(
         .await?;
     layers.push(system_layer);
 
-    // Add a layer for $CODEX_HOME/config.toml so folder-derived resources such
-    // as rules/ can still be discovered. When user config is ignored, preserve
-    // the layer metadata without reading config.toml.
+    // Add a layer for $CODEX_HOME/config.toml plus the fork-specific
+    // $CODEX_HOME/codexx.toml override so folder-derived resources such as
+    // rules/ can still be discovered. When user config is ignored, preserve
+    // the layer metadata without reading either file.
     let user_file = AbsolutePathBuf::resolve_path_against_base(CONFIG_TOML_FILE, codex_home);
     let user_layer = if ignore_user_config {
         ConfigLayerEntry::new(
@@ -201,15 +205,12 @@ pub async fn load_config_layers_state(
             TomlValue::Table(toml::map::Map::new()),
         )
     } else {
-        load_config_toml_for_required_layer(fs, &user_file, |config_toml| {
-            ConfigLayerEntry::new(
-                ConfigLayerSource::User {
-                    file: user_file.clone(),
-                },
-                config_toml,
-            )
-        })
-        .await?
+        ConfigLayerEntry::new(
+            ConfigLayerSource::User {
+                file: user_file.clone(),
+            },
+            load_user_config_toml(fs, codex_home).await?,
+        )
     };
     layers.push(user_layer);
 
@@ -337,6 +338,49 @@ pub async fn load_config_layers_state(
         Some(startup_warnings) => config_layer_stack.with_startup_warnings(startup_warnings),
         None => config_layer_stack,
     })
+}
+
+pub async fn load_user_config_toml(
+    fs: &dyn ExecutorFileSystem,
+    codex_home: &Path,
+) -> io::Result<TomlValue> {
+    let user_file = AbsolutePathBuf::resolve_path_against_base(CONFIG_TOML_FILE, codex_home);
+    let mut user_config =
+        match read_config_from_path(fs, &user_file, /*log_missing_as_info*/ false).await? {
+            Some(config) => {
+                let user_parent = user_file.as_path().parent().ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "Config file {} has no parent directory",
+                            user_file.as_path().display()
+                        ),
+                    )
+                })?;
+                resolve_relative_paths_in_config_toml(config, user_parent)?
+            }
+            None => TomlValue::Table(toml::map::Map::new()),
+        };
+
+    let codexx_file =
+        AbsolutePathBuf::resolve_path_against_base(CODEXX_CONFIG_TOML_FILE, codex_home);
+    if let Some(codexx_config) =
+        read_config_from_path(fs, &codexx_file, /*log_missing_as_info*/ false).await?
+    {
+        let codexx_parent = codexx_file.as_path().parent().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "Config file {} has no parent directory",
+                    codexx_file.as_path().display()
+                ),
+            )
+        })?;
+        let codexx_config = resolve_relative_paths_in_config_toml(codexx_config, codexx_parent)?;
+        merge_toml_values(&mut user_config, &codexx_config);
+    }
+
+    Ok(user_config)
 }
 
 fn insert_layer_by_precedence(layers: &mut Vec<ConfigLayerEntry>, layer: ConfigLayerEntry) {

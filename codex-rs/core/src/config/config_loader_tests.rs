@@ -2,6 +2,7 @@ use crate::config::ConfigBuilder;
 use crate::config::ConfigOverrides;
 use crate::config::ConstraintError;
 use codex_app_server_protocol::ConfigLayerSource;
+use codex_config::CODEXX_CONFIG_TOML_FILE;
 use codex_config::CONFIG_TOML_FILE;
 use codex_config::CloudRequirementsLoadError;
 use codex_config::CloudRequirementsLoader;
@@ -126,6 +127,11 @@ async fn ignore_user_config_keeps_empty_user_layer() -> std::io::Result<()> {
         "model = \"from-user-config\"\ninvalid = [",
     )
     .expect("write config");
+    std::fs::write(
+        tmp.path().join(CODEXX_CONFIG_TOML_FILE),
+        "model = \"from-codexx-config\"\n",
+    )
+    .expect("write codexx config");
 
     let cwd = AbsolutePathBuf::try_from(tmp.path()).expect("cwd");
     let layers = load_config_layers_state(
@@ -151,6 +157,30 @@ async fn ignore_user_config_keeps_empty_user_layer() -> std::io::Result<()> {
         "expected ignored user config to preserve only layer metadata"
     );
     assert_eq!(layers.effective_config().get("model"), None);
+    Ok(())
+}
+
+#[tokio::test]
+async fn codexx_user_config_overrides_config_toml() -> std::io::Result<()> {
+    let tmp = tempdir().expect("tempdir");
+    tokio::fs::write(
+        tmp.path().join(CONFIG_TOML_FILE),
+        "model = \"from-user-config\"\n",
+    )
+    .await?;
+    tokio::fs::write(
+        tmp.path().join(CODEXX_CONFIG_TOML_FILE),
+        "model = \"from-codexx-config\"\n",
+    )
+    .await?;
+
+    let config = ConfigBuilder::default()
+        .codex_home(tmp.path().to_path_buf())
+        .fallback_cwd(Some(tmp.path().to_path_buf()))
+        .build()
+        .await?;
+
+    assert_eq!(config.model, Some("from-codexx-config".to_string()));
     Ok(())
 }
 

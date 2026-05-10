@@ -49,10 +49,12 @@ use codex_analytics::AnalyticsEventsClient;
 use codex_analytics::SubAgentThreadStartedInput;
 use codex_app_server_protocol::McpServerElicitationRequest;
 use codex_app_server_protocol::McpServerElicitationRequestParams;
+use codex_config::loader::load_user_config_toml;
 use codex_config::types::OAuthCredentialsStoreMode;
 use codex_exec_server::Environment;
 use codex_exec_server::EnvironmentManager;
 use codex_exec_server::FileSystemSandboxContext;
+use codex_exec_server::LOCAL_FS;
 use codex_features::FEATURES;
 use codex_features::Feature;
 use codex_features::unstable_features_warning_event;
@@ -1433,27 +1435,21 @@ impl Session {
         //
         // Prefer `refresh_runtime_config()` when the host can already provide a materialized
         // config snapshot. This file-based path exists for legacy local reload flows.
-        let config_toml_path = {
+        let (config_toml_path, codex_home) = {
             let state = self.state.lock().await;
-            state
-                .session_configuration
-                .codex_home
-                .join(CONFIG_TOML_FILE)
+            (
+                state
+                    .session_configuration
+                    .codex_home
+                    .join(CONFIG_TOML_FILE),
+                state.session_configuration.codex_home.clone(),
+            )
         };
 
-        let user_config = match std::fs::read_to_string(&config_toml_path) {
-            Ok(contents) => match toml::from_str::<toml::Value>(&contents) {
-                Ok(config) => config,
-                Err(err) => {
-                    warn!("failed to parse user config while reloading layer: {err}");
-                    return;
-                }
-            },
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                toml::Value::Table(Default::default())
-            }
+        let user_config = match load_user_config_toml(LOCAL_FS.as_ref(), &codex_home).await {
+            Ok(config) => config,
             Err(err) => {
-                warn!("failed to read user config while reloading layer: {err}");
+                warn!("failed to load user config while reloading layer: {err}");
                 return;
             }
         };
