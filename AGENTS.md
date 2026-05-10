@@ -69,8 +69,10 @@ In the codex-rs folder where the rust code lives:
 
 Run `just fmt` (in `codex-rs` directory) automatically after you have finished making Rust code changes; do not ask for approval to run it. Additionally, run the tests:
 
-1. Run the test for the specific project that was changed. For example, if changes were made in `codex-rs/tui`, run `cargo test -p codex-tui`.
-2. Once those pass, if any changes were made in common, core, or protocol, run the complete test suite with `cargo test` (or `just test` if `cargo-nextest` is installed). Avoid `--all-features` for routine local runs because it expands the build matrix and can significantly increase `target/` disk usage; use it only when you specifically need full feature coverage. project-specific or individual tests can be run without asking the user, but do ask the user before running the complete test suite.
+1. Run only the tests that cover the files or crate you actually changed. Prefer the smallest target that exercises the edited code, such as a single crate test (`cargo test -p codex-tui`), a focused module test, or a single integration test case.
+2. If the change is broad or slow to isolate, use a smoke test that proves the affected build or flow still works instead of defaulting to the full workspace suite.
+3. Do not run the full workspace test suite by default for `common`, `core`, or `protocol` changes. Reserve `cargo test` / `just test` for an explicit user request or for cases where a focused test cannot reasonably cover the change.
+4. Avoid `--all-features` for routine local runs because it expands the build matrix and can significantly increase `target/` disk usage; use it only when you specifically need full feature coverage.
 
 Before finalizing a large change to `codex-rs`, run `just fix -p <project>` (in `codex-rs` directory) to fix any linter issues in the code. Prefer scoping with `-p` to avoid slow workspace‑wide Clippy builds; only run `just fix` without `-p` if you changed shared crates. Do not re-run tests after running `fix` or `fmt`.
 
