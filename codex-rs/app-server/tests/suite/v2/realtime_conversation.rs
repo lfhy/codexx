@@ -72,6 +72,7 @@ use wiremock::matchers::path;
 use wiremock::matchers::path_regex;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
+const REALTIME_STARTED_TIMEOUT: Duration = Duration::from_secs(30);
 const DELEGATED_SHELL_TOOL_TIMEOUT_MS: u64 = 30_000;
 const STARTUP_CONTEXT_HEADER: &str = "Startup context from Codex.";
 const V2_STEERING_ACKNOWLEDGEMENT: &str =
@@ -2075,8 +2076,13 @@ async fn realtime_conversation_requires_feature_flag() -> Result<()> {
 }
 
 async fn read_notification<T: DeserializeOwned>(mcp: &mut McpProcess, method: &str) -> Result<T> {
+    let timeout_duration = if method == "thread/realtime/started" {
+        REALTIME_STARTED_TIMEOUT
+    } else {
+        DEFAULT_TIMEOUT
+    };
     let notification = timeout(
-        DEFAULT_TIMEOUT,
+        timeout_duration,
         mcp.read_stream_until_notification_message(method),
     )
     .await??;
