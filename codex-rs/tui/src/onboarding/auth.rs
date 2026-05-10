@@ -13,8 +13,12 @@ use codex_app_server_protocol::AccountUpdatedNotification;
 use codex_app_server_protocol::AuthMode as AppServerAuthMode;
 use codex_app_server_protocol::CancelLoginAccountParams;
 use codex_app_server_protocol::ClientRequest;
+use codex_app_server_protocol::ConfigBatchWriteParams;
+use codex_app_server_protocol::ConfigEdit;
+use codex_app_server_protocol::ConfigWriteResponse;
 use codex_app_server_protocol::LoginAccountParams;
 use codex_app_server_protocol::LoginAccountResponse;
+use codex_app_server_protocol::MergeStrategy;
 use codex_login::read_openai_api_key_from_env;
 use crossterm::event::KeyCode;
 use crossterm::event::KeyEvent;
@@ -147,10 +151,56 @@ pub(super) async fn cancel_login_attempt(
         .await;
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum ApiKeyEntryField {
+    #[default]
+    BaseUrl,
+    ApiKey,
+}
+
+impl ApiKeyEntryField {
+    fn next(self) -> Self {
+        match self {
+            Self::BaseUrl => Self::ApiKey,
+            Self::ApiKey => Self::BaseUrl,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub(crate) struct ApiKeyInputState {
-    value: String,
-    prepopulated_from_env: bool,
+    base_url: String,
+    api_key: String,
+    focused_field: ApiKeyEntryField,
+    api_key_prepopulated_from_env: bool,
+}
+
+impl Default for ApiKeyInputState {
+    fn default() -> Self {
+        Self {
+            base_url: String::new(),
+            api_key: String::new(),
+            focused_field: ApiKeyEntryField::BaseUrl,
+            api_key_prepopulated_from_env: false,
+        }
+    }
+}
+
+impl ApiKeyInputState {
+    fn has_text(&self) -> bool {
+        !self.base_url.is_empty() || !self.api_key.is_empty()
+    }
+
+    fn focus_next(&mut self) {
+        self.focused_field = self.focused_field.next();
+    }
+
+    fn active_value_mut(&mut self) -> &mut String {
+        match self.focused_field {
+            ApiKeyEntryField::BaseUrl => &mut self.base_url,
+            ApiKeyEntryField::ApiKey => &mut self.api_key,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -327,7 +377,7 @@ impl AuthModeWidget {
     /// Returns whether the API-key entry field currently contains any text.
     pub(crate) fn api_key_entry_has_text(&self) -> bool {
         self.sign_in_state.read().is_ok_and(
-            |guard| matches!(&*guard, SignInState::ApiKeyEntry(state) if !state.value.is_empty()),
+            |guard| matches!(&*guard, SignInState::ApiKeyEntry(state) if state.has_text()),
         )
     }
 
@@ -638,23 +688,36 @@ impl AuthModeWidget {
     }
 
     fn render_api_key_entry(&self, area: Rect, buf: &mut Buffer, state: &ApiKeyInputState) {
-        let [intro_area, input_area, footer_area] = Layout::vertical([
-            Constraint::Min(4),
+        let [
+            intro_area,
+            base_url_area,
+            spacer_area,
+            api_key_area,
+            footer_area,
+        ] = Layout::vertical([
+            Constraint::Min(6),
             Constraint::Length(3),
-            Constraint::Min(2),
+            Constraint::Length(1),
+            Constraint::Length(3),
+            Constraint::Min(3),
         ])
         .areas(area);
+        Paragraph::new("").render(spacer_area, buf);
 
         let mut intro_lines: Vec<Line> = vec![
             Line::from(vec![
                 "> ".into(),
-                "Use your own OpenAI API key for usage-based billing".bold(),
+                "Use your own OpenAI-compatible API endpoint and key".bold(),
             ]),
             "".into(),
-            "  Paste or type your API key below. It will be stored locally in auth.json.".into(),
+            "  Optionally set a custom Base URL for an OpenAI-compatible upstream.".into(),
+            "  The Base URL is saved to config.toml and the API key to auth.json.".into(),
+            "  Leave Base URL empty to use the default OpenAI endpoint."
+                .dim()
+                .into(),
             "".into(),
         ];
-        if state.prepopulated_from_env {
+        if state.api_key_prepopulated_from_env {
             intro_lines.push("  Detected OPENAI_API_KEY environment variable.".into());
             intro_lines.push(
                 "  Paste a different key if you prefer to use another account."
@@ -667,10 +730,30 @@ impl AuthModeWidget {
             .wrap(Wrap { trim: false })
             .render(intro_area, buf);
 
-        let content_line: Line = if state.value.is_empty() {
+        let base_url_line: Line = if state.base_url.is_empty() {
+            vec!["Optional: https://api.example.com/v1".dim()].into()
+        } else {
+            Line::from(state.base_url.clone())
+        };
+        Paragraph::new(base_url_line)
+            .wrap(Wrap { trim: false })
+            .block(
+                Block::default()
+                    .title("Base URL (optional)")
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(if state.focused_field == ApiKeyEntryField::BaseUrl {
+                        Style::default().fg(Color::Cyan)
+                    } else {
+                        Style::default().dim()
+                    }),
+            )
+            .render(base_url_area, buf);
+
+        let content_line: Line = if state.api_key.is_empty() {
             vec!["Paste or type your API key".dim()].into()
         } else {
-            Line::from(state.value.clone())
+            Line::from(state.api_key.clone())
         };
         Paragraph::new(content_line)
             .wrap(Wrap { trim: false })
@@ -679,15 +762,30 @@ impl AuthModeWidget {
                     .title("API key")
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(Color::Cyan)),
+                    .border_style(if state.focused_field == ApiKeyEntryField::ApiKey {
+                        Style::default().fg(Color::Cyan)
+                    } else {
+                        Style::default().dim()
+                    }),
             )
-            .render(input_area, buf);
+            .render(api_key_area, buf);
 
         let mut footer_lines: Vec<Line> = vec![
             Line::from(vec![
                 "  Press ".dim(),
+                keys::MOVE_UP[0].into(),
+                " or ".dim(),
+                keys::MOVE_DOWN[0].into(),
+                " to switch fields".dim(),
+            ]),
+            Line::from(vec![
+                "  Press ".dim(),
                 self.confirm_binding().into(),
-                " to save".dim(),
+                if state.focused_field == ApiKeyEntryField::ApiKey {
+                    " to save".dim()
+                } else {
+                    " to continue".dim()
+                },
             ]),
             Line::from(vec![
                 "  Press ".dim(),
@@ -705,7 +803,7 @@ impl AuthModeWidget {
     }
 
     fn handle_api_key_entry_key_event(&mut self, key_event: &KeyEvent) -> bool {
-        let mut should_save: Option<String> = None;
+        let mut should_save: Option<ApiKeyInputState> = None;
         let mut should_request_frame = false;
 
         {
@@ -715,22 +813,41 @@ impl AuthModeWidget {
                     *guard = SignInState::PickMode;
                     self.set_error(/*message*/ None);
                     should_request_frame = true;
+                } else if matches!(key_event.code, KeyCode::Up | KeyCode::Down | KeyCode::Tab)
+                    && key_event.kind == KeyEventKind::Press
+                {
+                    state.focus_next();
+                    self.set_error(/*message*/ None);
+                    should_request_frame = true;
                 } else if keys::CONFIRM.is_pressed(*key_event) {
-                    let trimmed = state.value.trim().to_string();
-                    if trimmed.is_empty() {
-                        self.set_error(Some("API key cannot be empty".to_string()));
+                    if state.focused_field == ApiKeyEntryField::BaseUrl {
+                        state.focused_field = ApiKeyEntryField::ApiKey;
+                        self.set_error(/*message*/ None);
                         should_request_frame = true;
                     } else {
-                        should_save = Some(trimmed);
+                        let trimmed_api_key = state.api_key.trim().to_string();
+                        if trimmed_api_key.is_empty() {
+                            self.set_error(Some("API key cannot be empty".to_string()));
+                            should_request_frame = true;
+                        } else {
+                            should_save = Some(ApiKeyInputState {
+                                base_url: state.base_url.trim().to_string(),
+                                api_key: trimmed_api_key,
+                                focused_field: ApiKeyEntryField::ApiKey,
+                                api_key_prepopulated_from_env: false,
+                            });
+                        }
                     }
                 } else {
                     match key_event.code {
                         KeyCode::Backspace => {
-                            if state.prepopulated_from_env {
-                                state.value.clear();
-                                state.prepopulated_from_env = false;
+                            if state.focused_field == ApiKeyEntryField::ApiKey
+                                && state.api_key_prepopulated_from_env
+                            {
+                                state.api_key.clear();
+                                state.api_key_prepopulated_from_env = false;
                             } else {
-                                state.value.pop();
+                                state.active_value_mut().pop();
                             }
                             self.set_error(/*message*/ None);
                             should_request_frame = true;
@@ -741,11 +858,13 @@ impl AuthModeWidget {
                                 && !key_event.modifiers.contains(KeyModifiers::CONTROL)
                                 && !key_event.modifiers.contains(KeyModifiers::ALT) =>
                         {
-                            if state.prepopulated_from_env {
-                                state.value.clear();
-                                state.prepopulated_from_env = false;
+                            if state.focused_field == ApiKeyEntryField::ApiKey
+                                && state.api_key_prepopulated_from_env
+                            {
+                                state.api_key.clear();
+                                state.api_key_prepopulated_from_env = false;
                             }
-                            state.value.push(c);
+                            state.active_value_mut().push(c);
                             self.set_error(/*message*/ None);
                             should_request_frame = true;
                         }
@@ -758,8 +877,8 @@ impl AuthModeWidget {
             }
         }
 
-        if let Some(api_key) = should_save {
-            self.save_api_key(api_key);
+        if let Some(state) = should_save {
+            self.save_api_key(state);
         } else if should_request_frame {
             self.request_frame.schedule_frame();
         }
@@ -774,11 +893,13 @@ impl AuthModeWidget {
 
         let mut guard = self.sign_in_state.write().unwrap();
         if let SignInState::ApiKeyEntry(state) = &mut *guard {
-            if state.prepopulated_from_env {
-                state.value = trimmed.to_string();
-                state.prepopulated_from_env = false;
+            if state.focused_field == ApiKeyEntryField::ApiKey
+                && state.api_key_prepopulated_from_env
+            {
+                state.api_key = trimmed.to_string();
+                state.api_key_prepopulated_from_env = false;
             } else {
-                state.value.push_str(trimmed);
+                state.active_value_mut().push_str(trimmed);
             }
             self.set_error(/*message*/ None);
         } else {
@@ -800,19 +921,20 @@ impl AuthModeWidget {
         let mut guard = self.sign_in_state.write().unwrap();
         match &mut *guard {
             SignInState::ApiKeyEntry(state) => {
-                if state.value.is_empty() {
+                if state.api_key.is_empty() {
                     if let Some(prefill) = prefill_from_env {
-                        state.value = prefill;
-                        state.prepopulated_from_env = true;
+                        state.api_key = prefill;
+                        state.api_key_prepopulated_from_env = true;
                     } else {
-                        state.prepopulated_from_env = false;
+                        state.api_key_prepopulated_from_env = false;
                     }
                 }
             }
             _ => {
                 *guard = SignInState::ApiKeyEntry(ApiKeyInputState {
-                    value: prefill_from_env.clone().unwrap_or_default(),
-                    prepopulated_from_env: prefill_from_env.is_some(),
+                    api_key: prefill_from_env.clone().unwrap_or_default(),
+                    api_key_prepopulated_from_env: prefill_from_env.is_some(),
+                    ..ApiKeyInputState::default()
                 });
             }
         }
@@ -820,7 +942,7 @@ impl AuthModeWidget {
         self.request_frame.schedule_frame();
     }
 
-    fn save_api_key(&mut self, api_key: String) {
+    fn save_api_key(&mut self, state: ApiKeyInputState) {
         if !self.is_api_login_allowed() {
             self.disallow_api_login();
             return;
@@ -831,11 +953,38 @@ impl AuthModeWidget {
         let error = self.error.clone();
         let request_frame = self.request_frame.clone();
         tokio::spawn(async move {
+            if !state.base_url.is_empty() {
+                let write_result = request_handle
+                    .request_typed::<ConfigWriteResponse>(ClientRequest::ConfigBatchWrite {
+                        request_id: onboarding_request_id(),
+                        params: ConfigBatchWriteParams {
+                            edits: vec![ConfigEdit {
+                                key_path: "openai_base_url".to_string(),
+                                value: serde_json::Value::String(state.base_url.clone()),
+                                merge_strategy: MergeStrategy::Upsert,
+                            }],
+                            file_path: None,
+                            expected_version: None,
+                            reload_user_config: true,
+                        },
+                    })
+                    .await;
+                if let Err(err) = write_result {
+                    let mut restore_state = state.clone();
+                    restore_state.focused_field = ApiKeyEntryField::BaseUrl;
+                    *error.write().unwrap() =
+                        Some(format!("Failed to save Base URL to config.toml: {err}"));
+                    *sign_in_state.write().unwrap() = SignInState::ApiKeyEntry(restore_state);
+                    request_frame.schedule_frame();
+                    return;
+                }
+            }
+
             match request_handle
                 .request_typed::<LoginAccountResponse>(ClientRequest::LoginAccount {
                     request_id: onboarding_request_id(),
                     params: LoginAccountParams::ApiKey {
-                        api_key: api_key.clone(),
+                        api_key: state.api_key.clone(),
                     },
                 })
                 .await
@@ -845,20 +994,18 @@ impl AuthModeWidget {
                     *sign_in_state.write().unwrap() = SignInState::ApiKeyConfigured;
                 }
                 Ok(other) => {
+                    let mut restore_state = state.clone();
+                    restore_state.focused_field = ApiKeyEntryField::ApiKey;
                     *error.write().unwrap() = Some(format!(
                         "Unexpected account/login/start response: {other:?}"
                     ));
-                    *sign_in_state.write().unwrap() = SignInState::ApiKeyEntry(ApiKeyInputState {
-                        value: api_key,
-                        prepopulated_from_env: false,
-                    });
+                    *sign_in_state.write().unwrap() = SignInState::ApiKeyEntry(restore_state);
                 }
                 Err(err) => {
+                    let mut restore_state = state.clone();
+                    restore_state.focused_field = ApiKeyEntryField::ApiKey;
                     *error.write().unwrap() = Some(format!("Failed to save API key: {err}"));
-                    *sign_in_state.write().unwrap() = SignInState::ApiKeyEntry(ApiKeyInputState {
-                        value: api_key,
-                        prepopulated_from_env: false,
-                    });
+                    *sign_in_state.write().unwrap() = SignInState::ApiKeyEntry(restore_state);
                 }
             }
             request_frame.schedule_frame();
@@ -1040,10 +1187,15 @@ mod tests {
     use codex_config::types::AuthCredentialsStoreMode;
 
     use pretty_assertions::assert_eq;
+    use ratatui::Terminal;
     use std::sync::Arc;
     use tempfile::TempDir;
 
-    async fn widget_forced_chatgpt() -> (AuthModeWidget, TempDir) {
+    use crate::test_backend::VT100Backend;
+
+    async fn widget_with_forced_login_method(
+        forced_login_method: Option<ForcedLoginMethod>,
+    ) -> (AuthModeWidget, TempDir) {
         let codex_home = TempDir::new().unwrap();
         let codex_home_path = codex_home.path().to_path_buf();
         let config = ConfigBuilder::default()
@@ -1088,11 +1240,15 @@ mod tests {
             sign_in_state: Arc::new(RwLock::new(SignInState::PickMode)),
             login_status: LoginStatus::NotAuthenticated,
             app_server_request_handle: AppServerRequestHandle::InProcess(client.request_handle()),
-            forced_login_method: Some(ForcedLoginMethod::Chatgpt),
+            forced_login_method,
             animations_enabled: true,
             animations_suppressed: std::cell::Cell::new(false),
         };
         (widget, codex_home)
+    }
+
+    async fn widget_forced_chatgpt() -> (AuthModeWidget, TempDir) {
+        widget_with_forced_login_method(Some(ForcedLoginMethod::Chatgpt)).await
     }
 
     #[tokio::test]
@@ -1115,7 +1271,11 @@ mod tests {
     async fn saving_api_key_is_blocked_when_chatgpt_forced() {
         let (mut widget, _tmp) = widget_forced_chatgpt().await;
 
-        widget.save_api_key("sk-test".to_string());
+        widget.save_api_key(ApiKeyInputState {
+            api_key: "sk-test".to_string(),
+            focused_field: ApiKeyEntryField::ApiKey,
+            ..ApiKeyInputState::default()
+        });
 
         assert_eq!(
             widget.error_message().as_deref(),
@@ -1246,6 +1406,54 @@ mod tests {
         );
 
         assert_eq!(widget.should_suppress_animations(), true);
+    }
+
+    #[test]
+    fn renders_api_key_entry_snapshot_with_custom_base_url_field() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let (widget, _tmp) = runtime.block_on(widget_with_forced_login_method(None));
+        *widget.sign_in_state.write().unwrap() =
+            SignInState::ApiKeyEntry(ApiKeyInputState::default());
+
+        let mut terminal =
+            Terminal::new(VT100Backend::new(/*width*/ 78, /*height*/ 18)).expect("terminal");
+        terminal
+            .draw(|f| widget.render_ref(f.area(), f.buffer_mut()))
+            .expect("draw");
+
+        insta::assert_snapshot!(terminal.backend());
+    }
+
+    #[test]
+    fn confirm_on_base_url_field_moves_focus_to_api_key() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let (mut widget, _tmp) = runtime.block_on(widget_with_forced_login_method(None));
+        *widget.sign_in_state.write().unwrap() =
+            SignInState::ApiKeyEntry(ApiKeyInputState::default());
+
+        let handled = widget
+            .handle_api_key_entry_key_event(&KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+
+        assert_eq!(handled, true);
+        assert!(matches!(
+            &*widget.sign_in_state.read().unwrap(),
+            SignInState::ApiKeyEntry(ApiKeyInputState {
+                focused_field: ApiKeyEntryField::ApiKey,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn custom_base_url_counts_as_api_key_entry_text() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let (widget, _tmp) = runtime.block_on(widget_with_forced_login_method(None));
+        *widget.sign_in_state.write().unwrap() = SignInState::ApiKeyEntry(ApiKeyInputState {
+            base_url: "https://haichat.eos.3000y.store/v1".to_string(),
+            ..ApiKeyInputState::default()
+        });
+
+        assert_eq!(widget.api_key_entry_has_text(), true);
     }
 
     #[tokio::test]

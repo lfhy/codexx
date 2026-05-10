@@ -97,7 +97,7 @@ pub(crate) struct OnboardingResult {
 struct ApiKeyEntryContext {
     /// True when onboarding is currently rendering the API-key entry state.
     active: bool,
-    /// True when the API-key input field currently contains user text.
+    /// True when any API-key entry input currently contains user text.
     has_text: bool,
 }
 
@@ -353,7 +353,7 @@ impl KeyboardHandler for OnboardingScreen {
 ///
 /// This only applies while API-key entry is active and the key is a printable
 /// character without control/alt modifiers and there is already text in the
-/// input field. Empty input intentionally does not trigger suppression so
+/// form. Empty input intentionally does not trigger suppression so
 /// the printable `q` quit key can still exit onboarding.
 fn suppress_quit_while_typing_api_key(
     key_event: KeyEvent,
