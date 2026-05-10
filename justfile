@@ -1,7 +1,7 @@
 set working-directory := "codex-rs"
 set positional-arguments
 
-rust_min_stack := "8388608" # 8 MiB
+rust_min_stack := "67108864" # 64 MiB
 
 # Display help
 help:
