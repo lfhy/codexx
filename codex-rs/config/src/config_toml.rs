@@ -419,8 +419,13 @@ pub struct ConfigToml {
 
     /// When `true`, checks for Codex updates on startup and surfaces update prompts.
     /// Set to `false` only if your Codex updates are centrally managed.
-    /// Defaults to `true`.
+    /// Defaults to `false` in this fork so startup stays offline unless you
+    /// explicitly enable it.
     pub check_for_update_on_startup: Option<bool>,
+
+    /// Update-check settings and upstream endpoint overrides.
+    #[serde(default)]
+    pub updates: Option<UpdatesToml>,
 
     /// When true, disables burst-paste detection for typed input entirely.
     /// All characters are inserted as they are received, and no buffering
@@ -604,6 +609,37 @@ pub struct RealtimeToml {
 pub struct RealtimeAudioToml {
     pub microphone: Option<String>,
     pub speaker: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq, JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct UpdatesToml {
+    /// When `true`, checks for updates on startup and surfaces update prompts.
+    /// Set to `false` only if updates are centrally managed.
+    /// Defaults to `false` in this fork so startup stays offline unless you
+    /// explicitly enable it.
+    pub enabled: Option<bool>,
+
+    /// API endpoint used to fetch the latest release metadata.
+    pub latest_release_api_url: Option<String>,
+
+    /// URL shown to the user for full release notes.
+    pub release_notes_url: Option<String>,
+
+    /// URL shown when Codex cannot infer an install-specific update command.
+    pub install_options_url: Option<String>,
+
+    /// Homebrew cask metadata endpoint used for brew-installed update checks.
+    pub homebrew_cask_api_url: Option<String>,
+
+    /// npm registry metadata endpoint used for npm/bun-installed update checks.
+    pub npm_package_url: Option<String>,
+
+    /// Installer script URL used for standalone Unix updates.
+    pub standalone_unix_installer_url: Option<String>,
+
+    /// Installer script URL used for standalone Windows updates.
+    pub standalone_windows_installer_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, JsonSchema)]

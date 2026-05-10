@@ -176,6 +176,15 @@ pub(crate) const MAX_MULTI_AGENT_V2_WAIT_TIMEOUT_MS: i64 = 3600 * 1000;
 pub(crate) const DEFAULT_AGENT_MAX_DEPTH: i32 = 1;
 pub(crate) const DEFAULT_AGENT_JOB_MAX_RUNTIME_SECONDS: Option<u64> = None;
 const LOCAL_DEV_BUILD_VERSION: &str = "0.0.0";
+const DEFAULT_UPDATE_LATEST_RELEASE_API_URL: &str =
+    "https://api.github.com/repos/lfhy/codexx/releases/latest";
+const DEFAULT_UPDATE_RELEASE_NOTES_URL: &str = "https://github.com/lfhy/codexx/releases/latest";
+const DEFAULT_UPDATE_INSTALL_OPTIONS_URL: &str = "https://github.com/lfhy/codexx";
+const DEFAULT_UPDATE_HOMEBREW_CASK_API_URL: &str = "https://formulae.brew.sh/api/cask/codex.json";
+const DEFAULT_UPDATE_NPM_PACKAGE_URL: &str = "https://registry.npmjs.org/@openai%2fcodex";
+const DEFAULT_UPDATE_STANDALONE_UNIX_INSTALLER_URL: &str = "https://chatgpt.com/codex/install.sh";
+const DEFAULT_UPDATE_STANDALONE_WINDOWS_INSTALLER_URL: &str =
+    "https://chatgpt.com/codex/install.ps1";
 
 pub const CONFIG_TOML_FILE: &str = "config.toml";
 
@@ -798,8 +807,12 @@ pub struct Config {
 
     /// When `true`, checks for Codex updates on startup and surfaces update prompts.
     /// Set to `false` only if your Codex updates are centrally managed.
-    /// Defaults to `true`.
+    /// Defaults to `false` in this fork so startup stays offline unless
+    /// update checks are explicitly enabled.
     pub check_for_update_on_startup: bool,
+
+    /// Update-check and installer endpoint settings.
+    pub updates: UpdateConfig,
 
     /// When true, disables burst-paste detection for typed input entirely.
     /// All characters are inserted as they are received, and no buffering
@@ -830,6 +843,34 @@ pub struct MultiAgentV2Config {
     pub root_agent_usage_hint_text: Option<String>,
     pub subagent_usage_hint_text: Option<String>,
     pub hide_spawn_agent_metadata: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UpdateConfig {
+    pub enabled: bool,
+    pub latest_release_api_url: String,
+    pub release_notes_url: String,
+    pub install_options_url: String,
+    pub homebrew_cask_api_url: String,
+    pub npm_package_url: String,
+    pub standalone_unix_installer_url: String,
+    pub standalone_windows_installer_url: String,
+}
+
+impl Default for UpdateConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            latest_release_api_url: DEFAULT_UPDATE_LATEST_RELEASE_API_URL.to_string(),
+            release_notes_url: DEFAULT_UPDATE_RELEASE_NOTES_URL.to_string(),
+            install_options_url: DEFAULT_UPDATE_INSTALL_OPTIONS_URL.to_string(),
+            homebrew_cask_api_url: DEFAULT_UPDATE_HOMEBREW_CASK_API_URL.to_string(),
+            npm_package_url: DEFAULT_UPDATE_NPM_PACKAGE_URL.to_string(),
+            standalone_unix_installer_url: DEFAULT_UPDATE_STANDALONE_UNIX_INSTALLER_URL.to_string(),
+            standalone_windows_installer_url: DEFAULT_UPDATE_STANDALONE_WINDOWS_INSTALLER_URL
+                .to_string(),
+        }
+    }
 }
 
 impl Default for MultiAgentV2Config {
@@ -2840,7 +2881,37 @@ impl Config {
 
         let review_model = override_review_model.or(cfg.review_model);
 
-        let check_for_update_on_startup = cfg.check_for_update_on_startup.unwrap_or(true);
+        let updates = {
+            let config_updates = cfg.updates.unwrap_or_default();
+            UpdateConfig {
+                enabled: config_updates
+                    .enabled
+                    .or(cfg.check_for_update_on_startup)
+                    .unwrap_or(false),
+                latest_release_api_url: config_updates
+                    .latest_release_api_url
+                    .unwrap_or_else(|| DEFAULT_UPDATE_LATEST_RELEASE_API_URL.to_string()),
+                release_notes_url: config_updates
+                    .release_notes_url
+                    .unwrap_or_else(|| DEFAULT_UPDATE_RELEASE_NOTES_URL.to_string()),
+                install_options_url: config_updates
+                    .install_options_url
+                    .unwrap_or_else(|| DEFAULT_UPDATE_INSTALL_OPTIONS_URL.to_string()),
+                homebrew_cask_api_url: config_updates
+                    .homebrew_cask_api_url
+                    .unwrap_or_else(|| DEFAULT_UPDATE_HOMEBREW_CASK_API_URL.to_string()),
+                npm_package_url: config_updates
+                    .npm_package_url
+                    .unwrap_or_else(|| DEFAULT_UPDATE_NPM_PACKAGE_URL.to_string()),
+                standalone_unix_installer_url: config_updates
+                    .standalone_unix_installer_url
+                    .unwrap_or_else(|| DEFAULT_UPDATE_STANDALONE_UNIX_INSTALLER_URL.to_string()),
+                standalone_windows_installer_url: config_updates
+                    .standalone_windows_installer_url
+                    .unwrap_or_else(|| DEFAULT_UPDATE_STANDALONE_WINDOWS_INSTALLER_URL.to_string()),
+            }
+        };
+        let check_for_update_on_startup = updates.enabled;
         let model_catalog = load_model_catalog(
             config_profile
                 .model_catalog_json
@@ -3152,6 +3223,7 @@ impl Config {
             windows_wsl_setup_acknowledged: cfg.windows_wsl_setup_acknowledged.unwrap_or(false),
             notices,
             check_for_update_on_startup,
+            updates,
             disable_paste_burst: cfg.disable_paste_burst.unwrap_or(false),
             analytics_enabled: config_profile
                 .analytics

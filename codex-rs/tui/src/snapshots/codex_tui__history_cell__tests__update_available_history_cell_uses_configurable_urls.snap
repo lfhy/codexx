@@ -1,0 +1,11 @@
+---
+source: tui/src/history_cell.rs
+expression: rendered
+---
+╭────────────────────────────────────────────────────────────────────────────╮
+│ ✨ Update available! 0.0.1 -> 9.9.9                                        │
+│ Run sh -c 'curl -fsSL https://updates.internal/install.sh | sh' to update. │
+│                                                                            │
+│ See full release notes:                                                    │
+│ https://updates.internal/releases                                          │
+╰────────────────────────────────────────────────────────────────────────────╯

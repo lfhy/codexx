@@ -3644,6 +3644,44 @@
       },
       "type": "object"
     },
+    "UpdatesToml": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "description": "When `true`, checks for updates on startup and surfaces update prompts. Set to `false` only if updates are centrally managed. Defaults to `false` in this fork so startup stays offline unless you explicitly enable it.",
+          "type": "boolean"
+        },
+        "homebrew_cask_api_url": {
+          "description": "Homebrew cask metadata endpoint used for brew-installed update checks.",
+          "type": "string"
+        },
+        "install_options_url": {
+          "description": "URL shown when Codex cannot infer an install-specific update command.",
+          "type": "string"
+        },
+        "latest_release_api_url": {
+          "description": "API endpoint used to fetch the latest release metadata.",
+          "type": "string"
+        },
+        "npm_package_url": {
+          "description": "npm registry metadata endpoint used for npm/bun-installed update checks.",
+          "type": "string"
+        },
+        "release_notes_url": {
+          "description": "URL shown to the user for full release notes.",
+          "type": "string"
+        },
+        "standalone_unix_installer_url": {
+          "description": "Installer script URL used for standalone Unix updates.",
+          "type": "string"
+        },
+        "standalone_windows_installer_url": {
+          "description": "Installer script URL used for standalone Windows updates.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "UriBasedFileOpener": {
       "oneOf": [
         {
@@ -3846,7 +3884,7 @@
       "type": "string"
     },
     "check_for_update_on_startup": {
-      "description": "When `true`, checks for Codex updates on startup and surfaces update prompts. Set to `false` only if your Codex updates are centrally managed. Defaults to `true`.",
+      "description": "When `true`, checks for Codex updates on startup and surfaces update prompts. Set to `false` only if your Codex updates are centrally managed. Defaults to `false` in this fork so startup stays offline unless you explicitly enable it.",
       "type": "boolean"
     },
     "cli_auth_credentials_store": {
@@ -4581,6 +4619,15 @@
         }
       ],
       "description": "Collection of settings that are specific to the TUI."
+    },
+    "updates": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/UpdatesToml"
+        }
+      ],
+      "default": null,
+      "description": "Update-check settings and upstream endpoint overrides."
     },
     "web_search": {
       "allOf": [

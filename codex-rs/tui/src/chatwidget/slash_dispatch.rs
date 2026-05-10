@@ -13,6 +13,7 @@ use crate::bottom_pane::slash_commands::BuiltinCommandFlags;
 use crate::bottom_pane::slash_commands::ServiceTierCommand;
 use crate::bottom_pane::slash_commands::SlashCommandItem;
 use crate::bottom_pane::slash_commands::find_slash_command;
+use crate::history_cell::UpdateAvailableHistoryCell;
 use codex_git_utils::get_git_repo_root;
 use std::path::Path;
 
@@ -128,6 +129,46 @@ impl ChatWidget {
     fn emit_raw_output_mode_changed(&self, enabled: bool) {
         self.app_event_tx
             .send(AppEvent::RawOutputModeChanged { enabled });
+    }
+
+    fn request_update_check(&mut self) {
+        let app_event_tx = self.app_event_tx.clone();
+        let config = self.config.clone();
+        self.add_info_message("Checking for updates...".to_string(), /*hint*/ None);
+        tokio::spawn(async move {
+            let event = match crate::updates::fetch_update_check(&config).await {
+                Ok(result) => {
+                    if crate::update_versions::is_newer(
+                        &result.latest_version,
+                        crate::version::CODEX_CLI_VERSION,
+                    )
+                    .unwrap_or(false)
+                    {
+                        AppEvent::InsertHistoryCell(Box::new(UpdateAvailableHistoryCell::new(
+                            result.latest_version,
+                            result.update_action,
+                            config.updates.clone(),
+                        )))
+                    } else {
+                        AppEvent::InsertHistoryCell(Box::new(history_cell::new_info_event(
+                            format!(
+                                "{} ({}) is already up to date.",
+                                crate::version::CODEX_CLI_BRAND,
+                                crate::version::CODEX_CLI_VERSION
+                            ),
+                            Some(format!(
+                                "Latest release notes: {}",
+                                config.updates.release_notes_url
+                            )),
+                        )))
+                    }
+                }
+                Err(err) => AppEvent::InsertHistoryCell(Box::new(history_cell::new_error_event(
+                    format!("Update check failed: {err}"),
+                ))),
+            };
+            app_event_tx.send(event);
+        });
     }
 
     fn slash_command_cwd(&self) -> &Path {
@@ -359,6 +400,9 @@ impl ChatWidget {
             }
             SlashCommand::Logout => {
                 self.app_event_tx.send(AppEvent::Logout);
+            }
+            SlashCommand::Update => {
+                self.request_update_check();
             }
             SlashCommand::Copy => {
                 self.copy_last_agent_markdown();
@@ -979,6 +1023,7 @@ impl ChatWidget {
             | SlashCommand::Experimental
             | SlashCommand::AutoReview
             | SlashCommand::Memories
+            | SlashCommand::Update
             | SlashCommand::Quit
             | SlashCommand::Exit
             | SlashCommand::Logout

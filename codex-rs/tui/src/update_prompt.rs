@@ -3,6 +3,7 @@
 use crate::history_cell::padded_emoji;
 use crate::key_hint;
 use crate::legacy_core::config::Config;
+use crate::legacy_core::config::UpdateConfig;
 use crate::render::Insets;
 use crate::render::renderable::ColumnRenderable;
 use crate::render::renderable::Renderable;
@@ -43,8 +44,12 @@ pub(crate) async fn run_update_prompt_if_needed(
         return Ok(UpdatePromptOutcome::Continue);
     };
 
-    let mut screen =
-        UpdatePromptScreen::new(tui.frame_requester(), latest_version.clone(), update_action);
+    let mut screen = UpdatePromptScreen::new(
+        tui.frame_requester(),
+        latest_version.clone(),
+        update_action,
+        config.updates.clone(),
+    );
     tui.draw(u16::MAX, |frame| {
         frame.render_widget_ref(&screen, frame.area());
     })?;
@@ -95,6 +100,7 @@ struct UpdatePromptScreen {
     latest_version: String,
     current_version: String,
     update_action: UpdateAction,
+    update_config: UpdateConfig,
     highlighted: UpdateSelection,
     selection: Option<UpdateSelection>,
 }
@@ -104,12 +110,14 @@ impl UpdatePromptScreen {
         request_frame: FrameRequester,
         latest_version: String,
         update_action: UpdateAction,
+        update_config: UpdateConfig,
     ) -> Self {
         Self {
             request_frame,
             latest_version,
             current_version: env!("CARGO_PKG_VERSION").to_string(),
             update_action,
+            update_config,
             highlighted: UpdateSelection::UpdateNow,
             selection: None,
         }
@@ -186,7 +194,9 @@ impl WidgetRef for &UpdatePromptScreen {
         Clear.render(area, buf);
         let mut column = ColumnRenderable::new();
 
-        let update_command = self.update_action.command_str();
+        let update_command = self
+            .update_action
+            .command_str_with_config(&self.update_config);
 
         column.push("");
         column.push(Line::from(vec![
@@ -204,7 +214,9 @@ impl WidgetRef for &UpdatePromptScreen {
         column.push(
             Line::from(vec![
                 "Release notes: ".dim(),
-                "https://github.com/openai/codex/releases/latest"
+                self.update_config
+                    .release_notes_url
+                    .clone()
                     .dim()
                     .underlined(),
             ])
@@ -254,6 +266,7 @@ mod tests {
             FrameRequester::test_dummy(),
             "9.9.9".into(),
             UpdateAction::NpmGlobalLatest,
+            UpdateConfig::default(),
         )
     }
 

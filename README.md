@@ -9,6 +9,7 @@ Codexx 是基于 OpenAI `codex` 仓库维护的一个 CLI / TUI fork，目标是
 - 配置项扩展，例如 `yolo`、`auto_goal`、`auto_commit`
 - `/model` 动态读取真实 `/models` 接口并支持自定义模型名
 - `/commit` 快捷命令和目标完成后的自动 commit 提示词流程
+- `/update` 手动检查更新，只在你主动触发时才会请求上游
 - 独立的 GitHub Actions 发布工作流，直接产出 `codexx` 二进制
 
 ## 适用场景
@@ -92,8 +93,10 @@ codex-rs/target/debug/codex
 - `yolo`：一键切换到 YOLO 模式
 - `auto_goal`：每轮任务自动启用 goal 模式
 - `auto_commit`：任务目标完成后自动触发 `/commit` 提示词流程
+- `updates`：更新检查和安装入口地址可配置，默认不在启动时主动检查
 
 如果你使用的是不支持 WebSocket 的兼容客户端，当前默认会走 HTTP，只有显式启用 WebSocket 配置时才会使用 WebSocket。
+如果你不想让启动阶段碰更新检查，可以直接留空相关配置，或者只在需要时手动执行 `/update`。
 
 ## 发布方式
 

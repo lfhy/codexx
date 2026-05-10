@@ -20,6 +20,7 @@ use crate::exec_cell::output_lines;
 use crate::exec_command::relativize_to_home;
 use crate::exec_command::strip_bash_lc_and_escape;
 use crate::legacy_core::config::Config;
+use crate::legacy_core::config::UpdateConfig;
 use crate::live_wrap::take_prefix_by_width;
 use crate::markdown::append_markdown;
 use crate::motion::MotionMode;
@@ -653,14 +654,20 @@ impl HistoryCell for PlainHistoryCell {
 pub(crate) struct UpdateAvailableHistoryCell {
     latest_version: String,
     update_action: Option<UpdateAction>,
+    update_config: UpdateConfig,
 }
 
 #[cfg_attr(debug_assertions, allow(dead_code))]
 impl UpdateAvailableHistoryCell {
-    pub(crate) fn new(latest_version: String, update_action: Option<UpdateAction>) -> Self {
+    pub(crate) fn new(
+        latest_version: String,
+        update_action: Option<UpdateAction>,
+        update_config: UpdateConfig,
+    ) -> Self {
         Self {
             latest_version,
             update_action,
+            update_config,
         }
     }
 }
@@ -670,11 +677,21 @@ impl HistoryCell for UpdateAvailableHistoryCell {
         use ratatui_macros::line;
         use ratatui_macros::text;
         let update_instruction = if let Some(update_action) = self.update_action {
-            line!["Run ", update_action.command_str().cyan(), " to update."]
+            line![
+                "Run ",
+                update_action
+                    .command_str_with_config(&self.update_config)
+                    .cyan(),
+                " to update."
+            ]
         } else {
             line![
                 "See ",
-                "https://github.com/openai/codex".cyan().underlined(),
+                self.update_config
+                    .install_options_url
+                    .clone()
+                    .cyan()
+                    .underlined(),
                 " for installation options."
             ]
         };
@@ -689,7 +706,9 @@ impl HistoryCell for UpdateAvailableHistoryCell {
             update_instruction,
             "",
             "See full release notes:",
-            "https://github.com/openai/codex/releases/latest"
+            self.update_config
+                .release_notes_url
+                .clone()
                 .cyan()
                 .underlined(),
         ];
@@ -703,9 +722,15 @@ impl HistoryCell for UpdateAvailableHistoryCell {
 
     fn raw_lines(&self) -> Vec<Line<'static>> {
         let update_instruction = if let Some(update_action) = self.update_action {
-            format!("Run {} to update.", update_action.command_str())
+            format!(
+                "Run {} to update.",
+                update_action.command_str_with_config(&self.update_config)
+            )
         } else {
-            "See https://github.com/openai/codex for installation options.".to_string()
+            format!(
+                "See {} for installation options.",
+                self.update_config.install_options_url
+            )
         };
         vec![
             Line::from("Update available!"),
@@ -713,7 +738,7 @@ impl HistoryCell for UpdateAvailableHistoryCell {
             Line::from(update_instruction),
             Line::from(""),
             Line::from("See full release notes:"),
-            Line::from("https://github.com/openai/codex/releases/latest"),
+            Line::from(self.update_config.release_notes_url.clone()),
         ]
     }
 }
@@ -5812,5 +5837,27 @@ mod tests {
             transcript_cells[1].as_any().is::<AgentMarkdownCell>(),
             "second cell should be AgentMarkdownCell"
         );
+    }
+
+    #[test]
+    fn update_available_history_cell_uses_configurable_urls() {
+        let cell = UpdateAvailableHistoryCell::new(
+            "9.9.9".to_string(),
+            Some(UpdateAction::StandaloneUnix),
+            crate::legacy_core::config::UpdateConfig {
+                enabled: false,
+                latest_release_api_url: "https://updates.internal/latest".to_string(),
+                release_notes_url: "https://updates.internal/releases".to_string(),
+                install_options_url: "https://updates.internal/install".to_string(),
+                homebrew_cask_api_url: "https://updates.internal/brew.json".to_string(),
+                npm_package_url: "https://updates.internal/npm".to_string(),
+                standalone_unix_installer_url: "https://updates.internal/install.sh".to_string(),
+                standalone_windows_installer_url: "https://updates.internal/install.ps1"
+                    .to_string(),
+            },
+        );
+
+        let rendered = render_lines(&cell.display_lines(/*width*/ 80)).join("\n");
+        insta::assert_snapshot!(rendered);
     }
 }

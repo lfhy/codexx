@@ -7278,7 +7278,7 @@ async fn test_precedence_fixture_with_o3_profile() -> std::io::Result<()> {
             mcp_servers: Constrained::allow_any(HashMap::new()),
             mcp_oauth_credentials_store_mode: resolve_mcp_oauth_credentials_store_mode(
                 Default::default(),
-                LOCAL_DEV_BUILD_VERSION,
+                env!("CARGO_PKG_VERSION"),
             ),
             mcp_oauth_callback_port: None,
             mcp_oauth_callback_url: None,
@@ -7353,7 +7353,11 @@ async fn test_precedence_fixture_with_o3_profile() -> std::io::Result<()> {
             active_project: ProjectConfig { trust_level: None },
             windows_wsl_setup_acknowledged: false,
             notices: Default::default(),
-            check_for_update_on_startup: true,
+            check_for_update_on_startup: false,
+            updates: UpdateConfig {
+                enabled: false,
+                ..Default::default()
+            },
             disable_paste_burst: false,
             tui_notifications: Default::default(),
             animations: true,
@@ -7699,7 +7703,7 @@ async fn test_precedence_fixture_with_gpt3_profile() -> std::io::Result<()> {
         mcp_servers: Constrained::allow_any(HashMap::new()),
         mcp_oauth_credentials_store_mode: resolve_mcp_oauth_credentials_store_mode(
             Default::default(),
-            LOCAL_DEV_BUILD_VERSION,
+            env!("CARGO_PKG_VERSION"),
         ),
         mcp_oauth_callback_port: None,
         mcp_oauth_callback_url: None,
@@ -7774,7 +7778,11 @@ async fn test_precedence_fixture_with_gpt3_profile() -> std::io::Result<()> {
         active_project: ProjectConfig { trust_level: None },
         windows_wsl_setup_acknowledged: false,
         notices: Default::default(),
-        check_for_update_on_startup: true,
+        check_for_update_on_startup: false,
+        updates: UpdateConfig {
+            enabled: false,
+            ..Default::default()
+        },
         disable_paste_burst: false,
         tui_notifications: Default::default(),
         animations: true,
@@ -7858,7 +7866,7 @@ async fn test_precedence_fixture_with_zdr_profile() -> std::io::Result<()> {
         mcp_servers: Constrained::allow_any(HashMap::new()),
         mcp_oauth_credentials_store_mode: resolve_mcp_oauth_credentials_store_mode(
             Default::default(),
-            LOCAL_DEV_BUILD_VERSION,
+            env!("CARGO_PKG_VERSION"),
         ),
         mcp_oauth_callback_port: None,
         mcp_oauth_callback_url: None,
@@ -7933,7 +7941,11 @@ async fn test_precedence_fixture_with_zdr_profile() -> std::io::Result<()> {
         active_project: ProjectConfig { trust_level: None },
         windows_wsl_setup_acknowledged: false,
         notices: Default::default(),
-        check_for_update_on_startup: true,
+        check_for_update_on_startup: false,
+        updates: UpdateConfig {
+            enabled: false,
+            ..Default::default()
+        },
         disable_paste_burst: false,
         tui_notifications: Default::default(),
         animations: true,
@@ -8002,7 +8014,7 @@ async fn test_precedence_fixture_with_gpt5_profile() -> std::io::Result<()> {
         mcp_servers: Constrained::allow_any(HashMap::new()),
         mcp_oauth_credentials_store_mode: resolve_mcp_oauth_credentials_store_mode(
             Default::default(),
-            LOCAL_DEV_BUILD_VERSION,
+            env!("CARGO_PKG_VERSION"),
         ),
         mcp_oauth_callback_port: None,
         mcp_oauth_callback_url: None,
@@ -8077,7 +8089,11 @@ async fn test_precedence_fixture_with_gpt5_profile() -> std::io::Result<()> {
         active_project: ProjectConfig { trust_level: None },
         windows_wsl_setup_acknowledged: false,
         notices: Default::default(),
-        check_for_update_on_startup: true,
+        check_for_update_on_startup: false,
+        updates: UpdateConfig {
+            enabled: false,
+            ..Default::default()
+        },
         disable_paste_burst: false,
         tui_notifications: Default::default(),
         animations: true,

@@ -53,6 +53,7 @@ pub enum SlashCommand {
     Apps,
     Plugins,
     Logout,
+    Update,
     Quit,
     Exit,
     Feedback,
@@ -130,6 +131,7 @@ impl SlashCommand {
             SlashCommand::Apps => "manage apps",
             SlashCommand::Plugins => "browse plugins",
             SlashCommand::Logout => "log out of Codex",
+            SlashCommand::Update => "check for updates now",
             SlashCommand::Rollout => "print the rollout file path",
             SlashCommand::TestApproval => "test approval request",
         }
@@ -168,6 +170,7 @@ impl SlashCommand {
                 | SlashCommand::Diff
                 | SlashCommand::Mention
                 | SlashCommand::Status
+                | SlashCommand::Update
                 | SlashCommand::Ide
         )
     }
@@ -208,6 +211,7 @@ impl SlashCommand {
             | SlashCommand::Ps
             | SlashCommand::Stop
             | SlashCommand::Goal
+            | SlashCommand::Update
             | SlashCommand::Mcp
             | SlashCommand::Apps
             | SlashCommand::Plugins
@@ -265,6 +269,12 @@ mod tests {
     }
 
     #[test]
+    fn update_command_is_parseable() {
+        assert_eq!(SlashCommand::from_str("update"), Ok(SlashCommand::Update));
+        assert_eq!(SlashCommand::Update.description(), "check for updates now");
+    }
+
+    #[test]
     fn certain_commands_are_available_during_task() {
         assert!(SlashCommand::Goal.available_during_task());
         assert!(SlashCommand::Ide.available_during_task());
@@ -273,6 +283,8 @@ mod tests {
         assert!(SlashCommand::Raw.available_during_task());
         assert!(SlashCommand::Raw.available_in_side_conversation());
         assert!(SlashCommand::Raw.supports_inline_args());
+        assert!(SlashCommand::Update.available_during_task());
+        assert!(SlashCommand::Update.available_in_side_conversation());
     }
 
     #[test]

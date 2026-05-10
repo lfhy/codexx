@@ -39,13 +39,13 @@ use crate::file_search::FileSearchManager;
 use crate::history_cell;
 use crate::history_cell::HistoryCell;
 #[cfg(not(debug_assertions))]
-use crate::history_cell::UpdateAvailableHistoryCell;
 use crate::hooks_rpc::HookTrustUpdate;
 use crate::key_hint::KeyBindingListExt;
 use crate::keymap::RuntimeKeymap;
 use crate::legacy_core::config::Config;
 use crate::legacy_core::config::ConfigBuilder;
 use crate::legacy_core::config::ConfigOverrides;
+use crate::legacy_core::config::UpdateConfig;
 use crate::legacy_core::config::edit::ConfigEdit;
 use crate::legacy_core::config::edit::ConfigEditsBuilder;
 #[cfg(target_os = "windows")]
@@ -354,6 +354,7 @@ pub struct AppExitInfo {
     pub thread_id: Option<ThreadId>,
     pub thread_name: Option<String>,
     pub update_action: Option<UpdateAction>,
+    pub update_config: UpdateConfig,
     pub exit_reason: ExitReason,
 }
 
@@ -364,6 +365,7 @@ impl AppExitInfo {
             thread_id: None,
             thread_name: None,
             update_action: None,
+            update_config: UpdateConfig::default(),
             exit_reason: ExitReason::Fatal(message.into()),
         }
     }
@@ -697,6 +699,7 @@ impl App {
                     thread_id: None,
                     thread_name: None,
                     update_action: None,
+                    update_config: config.updates.clone(),
                     exit_reason: ExitReason::UserRequested,
                 });
             }
@@ -894,9 +897,6 @@ Fix the config and retry.\n\
 See the Codex keymap documentation for supported actions and examples."
             )
         })?;
-        #[cfg(not(debug_assertions))]
-        let upgrade_version = crate::updates::get_upgrade_version(&config);
-
         let mut app = Self {
             model_catalog,
             session_telemetry: session_telemetry.clone(),
@@ -1001,26 +1001,6 @@ See the Codex keymap documentation for supported actions and examples."
         let mut listen_for_app_server_events = true;
         let mut waiting_for_initial_session_configured = wait_for_initial_session_configured;
 
-        #[cfg(not(debug_assertions))]
-        let pre_loop_exit_reason = if let Some(latest_version) = upgrade_version {
-            let control = app
-                .handle_event(
-                    tui,
-                    &mut app_server,
-                    AppEvent::InsertHistoryCell(Box::new(UpdateAvailableHistoryCell::new(
-                        latest_version,
-                        crate::update_action::get_update_action(),
-                    ))),
-                )
-                .await?;
-            match control {
-                AppRunControl::Continue => None,
-                AppRunControl::Exit(exit_reason) => Some(exit_reason),
-            }
-        } else {
-            None
-        };
-        #[cfg(debug_assertions)]
         let pre_loop_exit_reason: Option<ExitReason> = None;
 
         let exit_reason_result = if let Some(exit_reason) = pre_loop_exit_reason {
@@ -1113,6 +1093,7 @@ See the Codex keymap documentation for supported actions and examples."
             thread_id: resumable_thread.as_ref().map(|thread| thread.thread_id),
             thread_name: resumable_thread.and_then(|thread| thread.thread_name),
             update_action: app.pending_update_action,
+            update_config: app.config.updates.clone(),
             exit_reason,
         })
     }

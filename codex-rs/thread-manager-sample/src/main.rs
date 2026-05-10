@@ -270,6 +270,7 @@ fn new_config(model: Option<String>, arg0_paths: Arg0DispatchPaths) -> anyhow::R
         windows_wsl_setup_acknowledged: false,
         notices: Notice::default(),
         check_for_update_on_startup: false,
+        updates: Default::default(),
         disable_paste_burst: false,
         analytics_enabled: Some(false),
         feedback_enabled: false,

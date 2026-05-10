@@ -1,6 +1,5 @@
-#[cfg(any(not(debug_assertions), test))]
+use crate::legacy_core::config::UpdateConfig;
 use codex_install_context::InstallContext;
-#[cfg(any(not(debug_assertions), test))]
 use codex_install_context::StandalonePlatform;
 
 /// Update action the CLI should perform after the TUI exits.
@@ -19,7 +18,6 @@ pub enum UpdateAction {
 }
 
 impl UpdateAction {
-    #[cfg(any(not(debug_assertions), test))]
     pub(crate) fn from_install_context(context: &InstallContext) -> Option<Self> {
         match context {
             InstallContext::Npm => Some(UpdateAction::NpmGlobalLatest),
@@ -56,9 +54,62 @@ impl UpdateAction {
         shlex::try_join(std::iter::once(command).chain(args.iter().copied()))
             .unwrap_or_else(|_| format!("{command} {}", args.join(" ")))
     }
+
+    /// Returns command arguments using the configurable update URLs.
+    pub fn command_args_with_config(self, update_config: &UpdateConfig) -> (String, Vec<String>) {
+        match self {
+            UpdateAction::NpmGlobalLatest => (
+                "npm".to_string(),
+                vec![
+                    "install".to_string(),
+                    "-g".to_string(),
+                    "@openai/codex".to_string(),
+                ],
+            ),
+            UpdateAction::BunGlobalLatest => (
+                "bun".to_string(),
+                vec![
+                    "install".to_string(),
+                    "-g".to_string(),
+                    "@openai/codex".to_string(),
+                ],
+            ),
+            UpdateAction::BrewUpgrade => (
+                "brew".to_string(),
+                vec![
+                    "upgrade".to_string(),
+                    "--cask".to_string(),
+                    "codex".to_string(),
+                ],
+            ),
+            UpdateAction::StandaloneUnix => (
+                "sh".to_string(),
+                vec![
+                    "-c".to_string(),
+                    format!(
+                        "curl -fsSL {} | sh",
+                        update_config.standalone_unix_installer_url
+                    ),
+                ],
+            ),
+            UpdateAction::StandaloneWindows => (
+                "powershell".to_string(),
+                vec![
+                    "-c".to_string(),
+                    format!("irm {}|iex", update_config.standalone_windows_installer_url),
+                ],
+            ),
+        }
+    }
+
+    /// Returns the command string using the configurable update URLs.
+    pub fn command_str_with_config(self, update_config: &UpdateConfig) -> String {
+        let (command, args) = self.command_args_with_config(update_config);
+        shlex::try_join(std::iter::once(command.as_str()).chain(args.iter().map(String::as_str)))
+            .unwrap_or_else(|_| format!("{command} {}", args.join(" ")))
+    }
 }
 
-#[cfg(not(debug_assertions))]
 pub fn get_update_action() -> Option<UpdateAction> {
     UpdateAction::from_install_context(InstallContext::current())
 }
@@ -66,6 +117,7 @@ pub fn get_update_action() -> Option<UpdateAction> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::legacy_core::config::UpdateConfig;
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
@@ -122,6 +174,29 @@ mod tests {
                 "powershell",
                 &["-c", "irm https://chatgpt.com/codex/install.ps1|iex"][..],
             )
+        );
+    }
+
+    #[test]
+    fn standalone_update_commands_use_configured_urls() {
+        let update_config = UpdateConfig {
+            enabled: false,
+            latest_release_api_url: "https://updates.internal/latest".to_string(),
+            release_notes_url: "https://updates.internal/releases".to_string(),
+            install_options_url: "https://updates.internal/install".to_string(),
+            homebrew_cask_api_url: "https://updates.internal/brew.json".to_string(),
+            npm_package_url: "https://updates.internal/npm".to_string(),
+            standalone_unix_installer_url: "https://updates.internal/install.sh".to_string(),
+            standalone_windows_installer_url: "https://updates.internal/install.ps1".to_string(),
+        };
+
+        assert_eq!(
+            UpdateAction::StandaloneUnix.command_str_with_config(&update_config),
+            "sh -c 'curl -fsSL https://updates.internal/install.sh | sh'"
+        );
+        assert_eq!(
+            UpdateAction::StandaloneWindows.command_str_with_config(&update_config),
+            "powershell -c 'irm https://updates.internal/install.ps1|iex'"
         );
     }
 }

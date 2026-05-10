@@ -273,6 +273,7 @@ pub(super) async fn handle_model_migration_prompt_if_needed(
                     thread_id: None,
                     thread_name: None,
                     update_action: None,
+                    update_config: config.updates.clone(),
                     exit_reason: ExitReason::UserRequested,
                 });
             }

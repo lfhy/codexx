@@ -57,6 +57,7 @@ use crate::mcp_cmd::McpCli;
 use codex_core::build_models_manager;
 use codex_core::config::Config;
 use codex_core::config::ConfigOverrides;
+use codex_core::config::UpdateConfig;
 use codex_core::config::edit::ConfigEditsBuilder;
 use codex_core::config::find_codex_home;
 use codex_features::FEATURES;
@@ -621,6 +622,8 @@ fn format_exit_messages(exit_info: AppExitInfo, color_enabled: bool) -> Vec<Stri
 
 /// Handle the app exit and print the results. Optionally run the update action.
 fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
+    let update_config = exit_info.update_config.clone();
+    let update_action = exit_info.update_action;
     match exit_info.exit_reason {
         ExitReason::Fatal(message) => {
             eprintln!("ERROR: {message}");
@@ -629,28 +632,38 @@ fn handle_app_exit(exit_info: AppExitInfo) -> anyhow::Result<()> {
         ExitReason::UserRequested => { /* normal exit */ }
     }
 
-    let update_action = exit_info.update_action;
     let color_enabled = supports_color::on(Stream::Stdout).is_some();
     for line in format_exit_messages(exit_info, color_enabled) {
         println!("{line}");
     }
     if let Some(action) = update_action {
-        run_update_action(action)?;
+        run_update_action(action, Some(&update_config))?;
     }
     Ok(())
 }
 
 /// Run the update action and print the result.
-fn run_update_action(action: UpdateAction) -> anyhow::Result<()> {
+fn run_update_action(
+    action: UpdateAction,
+    update_config: Option<&UpdateConfig>,
+) -> anyhow::Result<()> {
     println!();
-    let cmd_str = action.command_str();
+    let fallback_update_config;
+    let update_config = match update_config {
+        Some(update_config) => update_config,
+        None => {
+            fallback_update_config = UpdateConfig::default();
+            &fallback_update_config
+        }
+    };
+    let cmd_str = action.command_str_with_config(update_config);
     println!("Updating Codex via `{cmd_str}`...");
 
     let status = {
         #[cfg(windows)]
         {
             if action == UpdateAction::StandaloneWindows {
-                let (cmd, args) = action.command_args();
+                let (cmd, args) = action.command_args_with_config(update_config);
                 // Run the standalone PowerShell installer with PowerShell
                 // itself. Routing this through `cmd.exe /C` would parse
                 // PowerShell metacharacters like `|` before PowerShell sees
@@ -665,11 +678,11 @@ fn run_update_action(action: UpdateAction) -> anyhow::Result<()> {
         }
         #[cfg(not(windows))]
         {
-            let (cmd, args) = action.command_args();
-            let command_path = crate::wsl_paths::normalize_for_wsl(cmd);
+            let (cmd, args) = action.command_args_with_config(update_config);
+            let command_path = crate::wsl_paths::normalize_for_wsl(&cmd);
             let normalized_args: Vec<String> = args
                 .iter()
-                .map(crate::wsl_paths::normalize_for_wsl)
+                .map(|arg| crate::wsl_paths::normalize_for_wsl(arg))
                 .collect();
             std::process::Command::new(&command_path)
                 .args(&normalized_args)
@@ -698,7 +711,7 @@ fn run_update_command() -> anyhow::Result<()> {
                 "Could not detect the Codex installation method. Please update manually: https://developers.openai.com/codex/cli/"
             );
         };
-        run_update_action(action)
+        run_update_action(action, None)
     }
 }
 
@@ -2188,6 +2201,7 @@ mod tests {
                 .map(Result::unwrap),
             thread_name: thread_name.map(str::to_string),
             update_action: None,
+            update_config: UpdateConfig::default(),
             exit_reason: ExitReason::UserRequested,
         }
     }
@@ -2199,6 +2213,7 @@ mod tests {
             thread_id: None,
             thread_name: None,
             update_action: None,
+            update_config: UpdateConfig::default(),
             exit_reason: ExitReason::UserRequested,
         };
         let lines = format_exit_messages_with_command_name(
