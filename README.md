@@ -1,60 +1,93 @@
-<p align="center"><code>npm i -g @openai/codex</code><br />or <code>brew install --cask codex</code></p>
-<p align="center"><strong>Codex CLI</strong> is a coding agent from OpenAI that runs locally on your computer.
-<p align="center">
-  <img src="https://github.com/openai/codex/blob/main/.github/codex-cli-splash.png" alt="Codex CLI splash" width="80%" />
-</p>
-</br>
-If you want Codex in your code editor (VS Code, Cursor, Windsurf), <a href="https://developers.openai.com/codex/ide">install in your IDE.</a>
-</br>If you want the desktop app experience, run <code>codex app</code> or visit <a href="https://chatgpt.com/codex?app-landing-page=true">the Codex App page</a>.
-</br>If you are looking for the <em>cloud-based agent</em> from OpenAI, <strong>Codex Web</strong>, go to <a href="https://chatgpt.com/codex">chatgpt.com/codex</a>.</p>
+# Codexx
 
----
+Codexx 是基于 OpenAI `codex` 仓库维护的一个 CLI / TUI fork，目标是把它调整成更适合国内上游、第三方 OpenAI 兼容接口和日常本地代理工作流的版本。
 
-## Quickstart
+这个 fork 当前重点补充了以下方向：
 
-### Installing and running Codex CLI
+- 更灵活的上游接入方式，包括全局 `wire_api`、HTTP 默认连接和可选 WebSocket
+- 初始化时可直接填写自定义 `base_url` 与 API Key
+- 配置项扩展，例如 `yolo`、`auto_goal`、`auto_commit`
+- `/model` 动态读取真实 `/models` 接口并支持自定义模型名
+- `/commit` 快捷命令和目标完成后的自动 commit 提示词流程
+- 独立的 GitHub Actions 发布工作流，直接产出 `codexx` 二进制
 
-Install globally with your preferred package manager:
+## 适用场景
 
-```shell
-# Install using npm
-npm install -g @openai/codex
+- 你想把 Codex CLI 接到自定义 OpenAI 兼容上游
+- 你需要一个支持实验性工作流、自动目标、自动 commit 提示词的终端代理
+- 你希望直接下载预编译 `codexx` 二进制，而不是自己从上游发行版里手动改名
+
+## 快速开始
+
+### 1. 直接运行
+
+如果你已经拿到发行版：
+
+- macOS / Linux：解压后给 `codexx` 添加执行权限，再直接运行
+- Windows：解压后运行 `codexx.exe`
+
+### 2. 从源码构建
+
+仓库根目录已经内置 fork 专用脚本：
+
+```bash
+scripts/bootstrap-build-env.sh
+scripts/build-codexx.sh --release
 ```
 
-```shell
-# Install using Homebrew
-brew install --cask codex
+构建完成后，稳定产物路径为：
+
+```bash
+build/codexx
 ```
 
-Then simply run `codex` to get started.
+### 3. 启动
 
-<details>
-<summary>You can also go to the <a href="https://github.com/openai/codex/releases/latest">latest GitHub Release</a> and download the appropriate binary for your platform.</summary>
+```bash
+./build/codexx
+```
 
-Each GitHub Release contains many executables, but in practice, you likely want one of these:
+首次初始化配置时，程序会支持直接输入：
 
-- macOS
-  - Apple Silicon/arm64: `codex-aarch64-apple-darwin.tar.gz`
-  - x86_64 (older Mac hardware): `codex-x86_64-apple-darwin.tar.gz`
-- Linux
-  - x86_64: `codex-x86_64-unknown-linux-musl.tar.gz`
-  - arm64: `codex-aarch64-unknown-linux-musl.tar.gz`
+- 自定义 `base_url`
+- API key
+- 模型名称
+- 是否启用部分自动化行为
 
-Each archive contains a single entry with the platform baked into the name (e.g., `codex-x86_64-unknown-linux-musl`), so you likely want to rename it to `codex` after extracting it.
+## 配置增强
 
-</details>
+相对上游，这个 fork 额外关注 OpenAI 兼容服务和自动化工作流，当前包含的典型配置能力有：
 
-### Using Codex with your ChatGPT plan
+- `wire_api`：支持全局默认值，也兼容渠道级覆盖
+- `yolo`：一键切换到 YOLO 模式
+- `auto_goal`：每轮任务自动启用 goal 模式
+- `auto_commit`：任务目标完成后自动触发 `/commit` 提示词流程
 
-Run `codex` and select **Sign in with ChatGPT**. We recommend signing into your ChatGPT account to use Codex as part of your Plus, Pro, Business, Edu, or Enterprise plan. [Learn more about what's included in your ChatGPT plan](https://help.openai.com/en/articles/11369540-codex-in-chatgpt).
+如果你使用的是不支持 WebSocket 的兼容客户端，当前默认会走 HTTP，只有显式启用 WebSocket 配置时才会使用 WebSocket。
 
-You can also use Codex with an API key, but this requires [additional setup](https://developers.openai.com/codex/auth#sign-in-with-an-api-key).
+## 发布方式
 
-## Docs
+本项目包含独立的 GitHub Actions 发布工作流，不依赖上游私有签名或专用 runner。
 
-- [**Codex Documentation**](https://developers.openai.com/codex)
-- [**Contributing**](./docs/contributing.md)
-- [**Installing & building**](./docs/install.md)
-- [**Open source fund**](./docs/open-source-fund.md)
+- 推送 `v0.0.1` 这类 tag 时，会自动触发构建与发布
+- 默认发布 Linux x86_64、macOS arm64、Windows x86_64 三个平台产物
+- Release 文案使用中文模板，并自动汇总两个 tag 之间的提交记录
 
-This repository is licensed under the [Apache-2.0 License](LICENSE).
+示例：
+
+```bash
+git tag v0.0.1
+git push origin v0.0.1
+```
+
+## 文档索引
+
+- 安装和构建说明：[`docs/install.md`](docs/install.md)
+- 贡献说明：[`docs/contributing.md`](docs/contributing.md)
+- 旧版上游 README 归档：[`README_OLD.md`](README_OLD.md)
+
+## 说明
+
+- 本项目仍继承上游 `codex` 的主体架构与绝大多数 crate 命名
+- fork 产物名固定为 `codexx`，方便发布和交付
+- 许可证沿用仓库原有的 [Apache-2.0 License](LICENSE)
