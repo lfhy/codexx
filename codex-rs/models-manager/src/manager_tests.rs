@@ -506,7 +506,7 @@ async fn refresh_available_models_drops_removed_remote_models() {
 }
 
 #[tokio::test]
-async fn refresh_available_models_skips_network_without_chatgpt_auth() {
+async fn refresh_available_models_fetches_network_without_chatgpt_auth() {
     let dynamic_slug = "dynamic-model-only-for-test-noauth";
     let codex_home = tempdir().expect("temp dir");
     let endpoint = TestModelsEndpoint::without_refresh(vec![vec![remote_model(
@@ -523,18 +523,18 @@ async fn refresh_available_models_skips_network_without_chatgpt_auth() {
     manager
         .refresh_available_models(RefreshStrategy::Online)
         .await
-        .expect("refresh should no-op without chatgpt auth");
+        .expect("refresh should succeed without chatgpt auth");
     let cached_remote = manager.get_remote_models().await;
     assert!(
-        !cached_remote
+        cached_remote
             .iter()
             .any(|candidate| candidate.slug == dynamic_slug),
-        "remote refresh should be skipped without chatgpt auth"
+        "remote refresh should fetch models without chatgpt auth"
     );
     assert_eq!(
         endpoint.fetch_count(),
-        0,
-        "endpoint that cannot refresh should avoid model fetches"
+        1,
+        "endpoint should fetch models without chatgpt auth"
     );
 }
 
@@ -592,7 +592,7 @@ impl ModelsEndpointClient for TestAuthAwareModelsEndpoint {
 }
 
 #[tokio::test]
-async fn refresh_available_models_skips_network_when_external_api_key_overrides_chatgpt_auth() {
+async fn refresh_available_models_fetches_network_when_external_api_key_overrides_chatgpt_auth() {
     let dynamic_slug = "dynamic-model-only-for-test-external-api-key";
     let codex_home = tempdir().expect("temp dir");
     let auth_manager =
@@ -615,19 +615,18 @@ async fn refresh_available_models_skips_network_when_external_api_key_overrides_
     manager
         .refresh_available_models(RefreshStrategy::Online)
         .await
-        .expect("refresh should no-op with API key auth");
+        .expect("refresh should succeed with API key auth");
     let cached_remote = manager.get_remote_models().await;
-
     assert!(
-        !cached_remote
+        cached_remote
             .iter()
             .any(|candidate| candidate.slug == dynamic_slug),
-        "remote refresh should be skipped when external API key auth is active"
+        "remote refresh should fetch models with API key auth"
     );
     assert_eq!(
         endpoint.fetch_count(),
-        0,
-        "endpoint should avoid model fetches when external API key auth is active"
+        1,
+        "endpoint should fetch models when external API key auth is active"
     );
 }
 

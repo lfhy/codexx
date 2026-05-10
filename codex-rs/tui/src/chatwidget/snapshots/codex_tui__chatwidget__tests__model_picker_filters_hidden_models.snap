@@ -2,9 +2,10 @@
 source: tui/src/chatwidget/tests/popups_and_settings.rs
 expression: popup
 ---
-  Select Model and Effort
-  Access legacy models by running codex -m <model_name> or in your config.toml
+  Select Model
+  Type to filter models, or press Enter to use a custom model name.
 
-› 1. test-visible-model (current)  test-visible-model description
+  Filter or enter a custom model
+› test-visible-model (current)  test-visible-model description
 
   Press enter to confirm or esc to go back

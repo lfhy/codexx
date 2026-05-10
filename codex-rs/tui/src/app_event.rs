@@ -610,7 +610,7 @@ pub(crate) enum AppEvent {
         effort: Option<ReasoningEffort>,
     },
 
-    /// Open the full model picker (non-auto models).
+    /// Open the full searchable model picker.
     OpenAllModelsPopup {
         models: Vec<ModelPreset>,
     },

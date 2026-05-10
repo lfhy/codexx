@@ -120,6 +120,12 @@ pub(crate) type OnSelectionChangedCallback =
 /// Ctrl+C).  Used by the theme picker to restore the pre-open theme.
 pub(crate) type OnCancelCallback = Option<Box<dyn Fn(&AppEventSender) + Send + Sync>>;
 
+/// Callback invoked when Enter is pressed with search enabled, a non-empty
+/// query, and no visible matches. This lets callers accept raw input values
+/// instead of treating the action as cancel.
+pub(crate) type OnAcceptSearchQueryCallback =
+    Option<Box<dyn Fn(String, &AppEventSender) + Send + Sync>>;
+
 /// One row in a [`ListSelectionView`] selection list.
 ///
 /// This is the source-of-truth model for row state before filtering and
@@ -200,6 +206,10 @@ pub(crate) struct SelectionViewParams {
 
     /// Called when the picker is dismissed via Esc/Ctrl+C without selecting.
     pub on_cancel: OnCancelCallback,
+
+    /// Called when search is enabled, Enter is pressed, and the current query
+    /// has no visible matches.
+    pub on_accept_search_query: OnAcceptSearchQueryCallback,
 }
 
 impl Default for SelectionViewParams {
@@ -228,6 +238,7 @@ impl Default for SelectionViewParams {
             preserve_side_content_bg: false,
             on_selection_changed: None,
             on_cancel: None,
+            on_accept_search_query: None,
         }
     }
 }
@@ -270,6 +281,7 @@ pub(crate) struct ListSelectionView {
 
     /// Called when the picker is dismissed via Esc/Ctrl+C without selecting.
     on_cancel: OnCancelCallback,
+    on_accept_search_query: OnAcceptSearchQueryCallback,
     keymap: ListKeymap,
 }
 
@@ -341,6 +353,7 @@ impl ListSelectionView {
             preserve_side_content_bg: params.preserve_side_content_bg,
             on_selection_changed: params.on_selection_changed,
             on_cancel: params.on_cancel,
+            on_accept_search_query: params.on_accept_search_query,
             keymap,
         };
         s.apply_filter();
@@ -707,10 +720,19 @@ impl ListSelectionView {
                 self.dismiss_after_child_accept = true;
             }
         } else if selected_actual_idx.is_none() {
-            if let Some(cb) = &self.on_cancel {
-                cb(&self.app_event_tx);
+            let search_query = self.search_query.trim();
+            if self.is_searchable
+                && !search_query.is_empty()
+                && let Some(cb) = &self.on_accept_search_query
+            {
+                cb(search_query.to_string(), &self.app_event_tx);
+                self.completion = Some(ViewCompletion::Accepted);
+            } else {
+                if let Some(cb) = &self.on_cancel {
+                    cb(&self.app_event_tx);
+                }
+                self.completion = Some(ViewCompletion::Cancelled);
             }
-            self.completion = Some(ViewCompletion::Cancelled);
         }
     }
 
@@ -1875,6 +1897,37 @@ mod tests {
             Ok(AppEvent::OpenApprovalsPopup) => {}
             Ok(other) => panic!("expected OpenApprovalsPopup cancel event, got {other:?}"),
             Err(err) => panic!("expected cancel callback event, got {err}"),
+        }
+    }
+
+    #[test]
+    fn enter_with_no_matches_accepts_raw_search_query_when_callback_is_present() {
+        let (tx_raw, mut rx) = unbounded_channel::<AppEvent>();
+        let tx = AppEventSender::new(tx_raw);
+        let mut view = new_view(
+            SelectionViewParams {
+                items: vec![SelectionItem {
+                    name: "Read Only".to_string(),
+                    dismiss_on_select: true,
+                    ..Default::default()
+                }],
+                is_searchable: true,
+                on_accept_search_query: Some(Box::new(|query, tx: &_| {
+                    tx.send(AppEvent::UpdateModel(query));
+                })),
+                ..Default::default()
+            },
+            tx,
+        );
+        view.set_search_query("mimo-v2.5".to_string());
+
+        view.handle_key_event(KeyEvent::from(KeyCode::Enter));
+
+        assert!(view.is_complete());
+        match rx.try_recv() {
+            Ok(AppEvent::UpdateModel(model)) => assert_eq!(model, "mimo-v2.5"),
+            Ok(other) => panic!("expected UpdateModel raw-query event, got {other:?}"),
+            Err(err) => panic!("expected raw-query callback event, got {err}"),
         }
     }
 

@@ -310,7 +310,7 @@ impl OpenAiModelsManager {
     }
 
     async fn should_refresh_models(&self) -> bool {
-        self.endpoint_client.uses_codex_backend().await || self.endpoint_client.has_command_auth()
+        true
     }
 
     async fn get_etag(&self) -> Option<String> {
