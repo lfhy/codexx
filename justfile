@@ -7,6 +7,14 @@ rust_min_stack := "8388608" # 8 MiB
 help:
     just -l
 
+[no-cd]
+bootstrap-build-env *args:
+    {{ justfile_directory() }}/scripts/bootstrap-build-env.sh "$@"
+
+[no-cd]
+build-codexx *args:
+    {{ justfile_directory() }}/scripts/build-codexx.sh "$@"
+
 # `codex`
 alias c := codex
 codex *args:

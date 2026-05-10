@@ -2,6 +2,19 @@
 
 In the codex-rs folder where the rust code lives:
 
+- This repository is a fork. For local packaging and handoff builds, the fork artifact name must be `codexx` instead of `codex`.
+- Do not rename upstream Rust crate names, package names, or internal `codex-*` identifiers just to satisfy the fork naming requirement unless the user explicitly asks for a full rebrand. The default fork workflow is to build the upstream `codex` binary and then emit a fork artifact named `codexx`.
+- Before any build or test session for this fork, run `scripts/bootstrap-build-env.sh` from the repo root, or `just bootstrap-build-env`. This script checks the build environment, exports domestic Rust mirror settings, and installs missing build dependencies automatically when the host package manager supports it.
+- For this fork, the default build command is `scripts/build-codexx.sh` from the repo root, or `just build-codexx`. Use `scripts/build-codexx.sh --release` for release builds. The generated fork artifact is written to `codex-rs/target/{debug,release}/codexx`.
+- The fork build scripts must keep using the domestic Rust mirrors documented by RsProxy to reduce cross-border network failures:
+  - `RUSTUP_DIST_SERVER=https://rsproxy.cn`
+  - `RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup`
+  - `CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse`
+  - `CARGO_REGISTRIES_CRATES_IO_INDEX=sparse+https://rsproxy.cn/index/`
+  - `CARGO_NET_GIT_FETCH_WITH_CLI=true`
+- Git-based Cargo dependencies must also use a domestic-accessible GitHub mirror. The fork build scripts currently probe multiple candidates, defaulting to `https://gh-proxy.com/https://github.com/`, `https://ghfast.top/https://github.com/`, and `https://gitclone.com/github.com/`, then inject the selected `CODEXX_GIT_MIRROR_PREFIX` through per-process git config so git fetches avoid rewriting the user's global git configuration. If a session needs a fixed mirror, override it explicitly with `CODEXX_GIT_MIRROR_PREFIX=...`.
+- If the environment is missing build tools, install them automatically before continuing whenever it is safe to do so. On macOS/Linux/WSL2, use `scripts/bootstrap-build-env.sh`. On native Windows, keep using `codex-rs/scripts/setup-windows.ps1` for system prerequisites before running Rust builds.
+- After completing requested file changes, create a local git commit automatically unless the user explicitly asks to keep the worktree uncommitted. Never include unrelated user changes in that commit; stage only the files that belong to the task.
 - Crate names are prefixed with `codex-`. For example, the `core` folder's crate is named `codex-core`
 - When using format! and you can inline variables into {}, always do that.
 - Install any commands the repo relies on (for example `just`, `rg`, or `cargo-insta`) if they aren't already available before running instructions here.
