@@ -2187,6 +2187,12 @@ impl Config {
                 .clone(),
             None => ConfigProfile::default(),
         };
+        let yolo_mode = config_profile.yolo.or(cfg.yolo).unwrap_or(false);
+        let profile_sandbox_mode = if yolo_mode {
+            Some(SandboxMode::DangerFullAccess)
+        } else {
+            config_profile.sandbox_mode
+        };
         let tool_suggest = resolve_tool_suggest_config(&cfg, &config_layer_stack);
         let feature_overrides = FeatureOverrides {
             include_apply_patch_tool: include_apply_patch_tool_override,
@@ -2252,7 +2258,7 @@ impl Config {
             &config_layer_stack,
             &cfg,
             sandbox_mode,
-            config_profile.sandbox_mode,
+            profile_sandbox_mode,
         );
         let has_permission_profiles = cfg
             .permissions
@@ -2458,7 +2464,7 @@ impl Config {
             let mut permission_profile = cfg
                 .derive_permission_profile(
                     sandbox_mode,
-                    config_profile.sandbox_mode,
+                    profile_sandbox_mode,
                     windows_sandbox_level,
                     Some(&active_project),
                     Some(&constrained_permission_profile),
@@ -2512,9 +2518,11 @@ impl Config {
             )
         };
         let approval_policy_was_explicit = approval_policy_override.is_some()
+            || yolo_mode
             || config_profile.approval_policy.is_some()
             || cfg.approval_policy.is_some();
         let mut approval_policy = approval_policy_override
+            .or(yolo_mode.then_some(AskForApproval::Never))
             .or(config_profile.approval_policy)
             .or(cfg.approval_policy)
             .unwrap_or_else(|| {

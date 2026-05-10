@@ -699,6 +699,10 @@
           ],
           "default": null
         },
+        "yolo": {
+          "description": "When true, enable YOLO mode (`approval_policy = \"never\"` and `sandbox_mode = \"danger-full-access\"`).",
+          "type": "boolean"
+        },
         "zsh_path": {
           "allOf": [
             {
@@ -4598,6 +4602,10 @@
         }
       ],
       "description": "Global default wire API for built-in providers that do not specify one explicitly."
+    },
+    "yolo": {
+      "description": "When true, enable YOLO mode (`approval_policy = \"never\"` and `sandbox_mode = \"danger-full-access\"`).",
+      "type": "boolean"
     },
     "zsh_path": {
       "allOf": [

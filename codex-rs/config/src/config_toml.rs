@@ -102,6 +102,10 @@ pub struct ConfigToml {
     /// Global default wire API for built-in providers that do not specify one explicitly.
     pub wire_api: Option<WireApi>,
 
+    /// When true, enable YOLO mode (`approval_policy = "never"` and
+    /// `sandbox_mode = "danger-full-access"`).
+    pub yolo: Option<bool>,
+
     /// Size of the context window for the model, in tokens.
     pub model_context_window: Option<i64>,
 

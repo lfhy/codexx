@@ -58,6 +58,7 @@ const PROJECT_LOCAL_CONFIG_DENYLIST: &[&str] = &[
     "chatgpt_base_url",
     "model_provider",
     "wire_api",
+    "yolo",
     "model_providers",
     "notify",
     "profile",

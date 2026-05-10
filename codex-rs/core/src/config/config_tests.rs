@@ -3792,6 +3792,58 @@ model = "gpt-project-local"
 }
 
 #[tokio::test]
+async fn project_local_yolo_is_ignored() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+    let workspace = TempDir::new()?;
+    let workspace_key = workspace.path().to_string_lossy().replace('\\', "\\\\");
+    std::fs::write(
+        codex_home.path().join(CONFIG_TOML_FILE),
+        format!(
+            r#"
+[projects."{workspace_key}"]
+trust_level = "trusted"
+"#,
+        ),
+    )?;
+    let project_config_dir = workspace.path().join(".codex");
+    std::fs::create_dir_all(&project_config_dir)?;
+    std::fs::write(
+        project_config_dir.join(CONFIG_TOML_FILE),
+        r#"
+yolo = true
+"#,
+    )?;
+
+    let config = ConfigBuilder::without_managed_config_for_tests()
+        .codex_home(codex_home.path().to_path_buf())
+        .harness_overrides(ConfigOverrides {
+            cwd: Some(workspace.path().to_path_buf()),
+            ..Default::default()
+        })
+        .build()
+        .await?;
+
+    assert_ne!(
+        config.permissions.approval_policy.value(),
+        AskForApproval::Never
+    );
+    assert!(!matches!(
+        &config.legacy_sandbox_policy(),
+        SandboxPolicy::DangerFullAccess
+    ));
+    assert!(
+        config
+            .startup_warnings
+            .iter()
+            .any(|warning| warning.contains("yolo")),
+        "expected warning for ignored project-local yolo key: {:?}",
+        config.startup_warnings
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn profile_sandbox_mode_overrides_base() -> std::io::Result<()> {
     let codex_home = TempDir::new()?;
     let mut profiles = HashMap::new();
@@ -3816,6 +3868,73 @@ async fn profile_sandbox_mode_overrides_base() -> std::io::Result<()> {
     )
     .await?;
 
+    assert!(matches!(
+        &config.legacy_sandbox_policy(),
+        &SandboxPolicy::DangerFullAccess
+    ));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn top_level_yolo_enables_yolo_mode() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+    let cfg = ConfigToml {
+        yolo: Some(true),
+        approval_policy: Some(AskForApproval::OnRequest),
+        sandbox_mode: Some(SandboxMode::ReadOnly),
+        ..Default::default()
+    };
+
+    let config = Config::load_from_base_config_with_overrides(
+        cfg,
+        ConfigOverrides::default(),
+        codex_home.abs(),
+    )
+    .await?;
+
+    assert_eq!(
+        config.permissions.approval_policy.value(),
+        AskForApproval::Never
+    );
+    assert!(matches!(
+        &config.legacy_sandbox_policy(),
+        &SandboxPolicy::DangerFullAccess
+    ));
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn profile_yolo_enables_yolo_mode() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+    let mut profiles = HashMap::new();
+    profiles.insert(
+        "work".to_string(),
+        ConfigProfile {
+            yolo: Some(true),
+            ..Default::default()
+        },
+    );
+    let cfg = ConfigToml {
+        profiles,
+        profile: Some("work".to_string()),
+        approval_policy: Some(AskForApproval::OnRequest),
+        sandbox_mode: Some(SandboxMode::ReadOnly),
+        ..Default::default()
+    };
+
+    let config = Config::load_from_base_config_with_overrides(
+        cfg,
+        ConfigOverrides::default(),
+        codex_home.abs(),
+    )
+    .await?;
+
+    assert_eq!(
+        config.permissions.approval_policy.value(),
+        AskForApproval::Never
+    );
     assert!(matches!(
         &config.legacy_sandbox_policy(),
         &SandboxPolicy::DangerFullAccess
