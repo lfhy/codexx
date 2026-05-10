@@ -576,9 +576,9 @@ pub enum RealtimeWsMode {
 #[serde(rename_all = "snake_case")]
 pub enum RealtimeTransport {
     #[default]
+    Websocket,
     #[serde(rename = "webrtc")]
     WebRtc,
-    Websocket,
 }
 
 pub use codex_protocol::protocol::RealtimeConversationVersion as RealtimeWsVersion;

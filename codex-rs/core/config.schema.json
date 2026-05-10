@@ -2124,8 +2124,8 @@
     },
     "RealtimeTransport": {
       "enum": [
-        "webrtc",
-        "websocket"
+        "websocket",
+        "webrtc"
       ],
       "type": "string"
     },

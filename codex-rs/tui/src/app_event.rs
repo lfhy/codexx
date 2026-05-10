@@ -37,6 +37,7 @@ use crate::bottom_pane::ApprovalRequest;
 use crate::bottom_pane::StatusLineItem;
 use crate::bottom_pane::TerminalTitleItem;
 use crate::chatwidget::UserMessage;
+use crate::history_cell::HistoryCell;
 use codex_app_server_protocol::AskForApproval;
 use codex_config::types::ApprovalsReviewer;
 use codex_features::Feature;
@@ -45,10 +46,6 @@ use codex_protocol::config_types::CollaborationModeMask;
 use codex_protocol::config_types::Personality;
 use codex_protocol::models::PermissionProfile;
 use codex_protocol::openai_models::ReasoningEffort;
-use codex_realtime_webrtc::RealtimeWebrtcEvent;
-use codex_realtime_webrtc::RealtimeWebrtcSessionHandle;
-
-use crate::history_cell::HistoryCell;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RealtimeAudioDeviceKind {
@@ -588,17 +585,6 @@ pub(crate) enum AppEvent {
         kind: RealtimeAudioDeviceKind,
     },
 
-    /// Result of creating a TUI-owned realtime WebRTC offer.
-    RealtimeWebrtcOfferCreated {
-        result: Result<RealtimeWebrtcOffer, String>,
-    },
-
-    /// Peer-connection lifecycle event from a TUI-owned realtime WebRTC session.
-    RealtimeWebrtcEvent(RealtimeWebrtcEvent),
-
-    /// Local microphone level from a TUI-owned realtime WebRTC session.
-    RealtimeWebrtcLocalAudioLevel(u16),
-
     /// Open the reasoning selection popup after picking a model.
     OpenReasoningPopup {
         model: ModelPreset,
@@ -926,12 +912,6 @@ pub(crate) enum AppEvent {
         context: String,
         action: String,
     },
-}
-
-#[derive(Debug)]
-pub(crate) struct RealtimeWebrtcOffer {
-    pub(crate) offer_sdp: String,
-    pub(crate) handle: RealtimeWebrtcSessionHandle,
 }
 
 /// The exit strategy requested by the UI layer.

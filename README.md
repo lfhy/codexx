@@ -94,6 +94,7 @@ codex-rs/target/debug/codex
 - `auto_goal`：每轮任务自动启用 goal 模式
 - `auto_commit`：任务目标完成后自动触发 `/commit` 提示词流程
 - `updates`：更新检查和安装入口地址可配置，默认不在启动时主动检查
+- realtime 仅保留 websocket 主链路，fork 默认不构建 WebRTC 传输
 
 如果你使用的是不支持 WebSocket 的兼容客户端，当前默认会走 HTTP，只有显式启用 WebSocket 配置时才会使用 WebSocket。
 如果你不想让启动阶段碰更新检查，可以直接留空相关配置，或者只在需要时手动执行 `/update`。
