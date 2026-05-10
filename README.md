@@ -28,14 +28,20 @@ Codexx 是基于 OpenAI `codex` 仓库维护的一个 CLI / TUI fork，目标是
 
 ### 2. 从源码构建
 
-仓库根目录已经内置 fork 专用脚本，分快速验证和最终发布两条路径：
+仓库根目录已经内置 fork 专用脚本，按速度和用途分成几条路径：
 
 ```bash
 scripts/bootstrap-build-env.sh
 scripts/verify-codexx.sh
 ```
 
-如果需要本地可运行产物：
+日常本地运行调试，直接走只编译不打包的调试入口：
+
+```bash
+scripts/run-codexx-debug.sh -- --help
+```
+
+如果需要本地可交付产物：
 
 ```bash
 scripts/build-codexx.sh
@@ -51,6 +57,12 @@ scripts/build-codexx-release.sh
 
 ```bash
 build/codexx
+```
+
+调试运行路径不会生成 `build/codexx`，而是直接使用：
+
+```bash
+codex-rs/target/debug/codex
 ```
 
 ### 3. 启动

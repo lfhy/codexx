@@ -5,7 +5,12 @@ In the codex-rs folder where the rust code lives:
 - This repository is a fork. For local packaging and handoff builds, the fork artifact name must be `codexx` instead of `codex`.
 - Do not rename upstream Rust crate names, package names, or internal `codex-*` identifiers just to satisfy the fork naming requirement unless the user explicitly asks for a full rebrand. The default fork workflow is to build the upstream `codex` binary and then emit a fork artifact named `codexx`.
 - Before any build or test session for this fork, run `scripts/bootstrap-build-env.sh` from the repo root, or `just bootstrap-build-env`. This script checks the build environment, exports domestic Rust mirror settings, and installs missing build dependencies automatically when the host package manager supports it.
-- For this fork, the default build command is `scripts/build-codexx.sh` from the repo root, or `just build-codexx`. Use `scripts/build-codexx.sh --release` for release builds. The generated fork artifact is always written to `build/codexx` at the repo root so quick verification has a stable path. Cargo's own `codex-rs/target/` contents remain intermediate build outputs and should not be treated as the handoff artifact.
+- For this fork, keep the local workflows split by speed and purpose:
+  - `scripts/verify-codexx.sh` or `just verify-codexx` is the fastest local verification path and should stay on `cargo check`.
+  - `scripts/run-codexx-debug.sh` or `just run-codexx-debug -- ...` is the preferred local run/debug path and should build only the debug binary in `codex-rs/target/debug/codex` without packaging or copying fork artifacts.
+  - `scripts/build-codexx.sh` or `just build-codexx` is for local packaging / handoff builds that must emit `build/codexx`.
+  - `scripts/build-codexx-release.sh` or `just build-codexx-release` is for final release packaging.
+  - Cargo's own `codex-rs/target/` contents remain intermediate build outputs and should not be treated as the handoff artifact unless the task is explicitly local debug/run.
 - The fork build scripts must keep using the domestic Rust mirrors documented by RsProxy to reduce cross-border network failures:
   - `RUSTUP_DIST_SERVER=https://rsproxy.cn`
   - `RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup`

@@ -6,5 +6,5 @@
 
 set -euo pipefail
 
-CODEX_RS_DIR=$(realpath "$(dirname "$0")/../codex-rs")
-(cd "$CODEX_RS_DIR" && cargo run --quiet --bin codex -- "$@")
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$repo_root/scripts/run-codexx-debug.sh" --skip-bootstrap -- "$@"

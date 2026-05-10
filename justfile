@@ -20,6 +20,10 @@ verify-codexx *args:
     {{ justfile_directory() }}/scripts/verify-codexx.sh "$@"
 
 [no-cd]
+run-codexx-debug *args:
+    {{ justfile_directory() }}/scripts/run-codexx-debug.sh "$@"
+
+[no-cd]
 build-codexx-release *args:
     {{ justfile_directory() }}/scripts/build-codexx-release.sh "$@"
 
