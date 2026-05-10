@@ -83,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           scripts/bootstrap-build-env.sh
-          scripts/build-codexx.sh --release
+          scripts/build-codexx-release.sh
 
       - name: Package artifact
         run: |
@@ -121,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           scripts/bootstrap-build-env.sh
-          scripts/build-codexx.sh --release
+          scripts/build-codexx-release.sh
 
       - name: Package artifact
         run: |

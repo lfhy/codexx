@@ -15,6 +15,14 @@ bootstrap-build-env *args:
 build-codexx *args:
     {{ justfile_directory() }}/scripts/build-codexx.sh "$@"
 
+[no-cd]
+verify-codexx *args:
+    {{ justfile_directory() }}/scripts/verify-codexx.sh "$@"
+
+[no-cd]
+build-codexx-release *args:
+    {{ justfile_directory() }}/scripts/build-codexx-release.sh "$@"
+
 # `codex`
 alias c := codex
 codex *args:
