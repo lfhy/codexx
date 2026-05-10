@@ -38,9 +38,9 @@ use crate::test_support::PathBufExt;
 use crate::test_support::test_path_buf;
 use crate::text_formatting::format_and_truncate_tool_result;
 use crate::text_formatting::truncate_text;
-use crate::tooltips;
 use crate::ui_consts::LIVE_PREFIX_COLS;
 use crate::update_action::UpdateAction;
+use crate::version::CODEX_CLI_BRAND;
 use crate::version::CODEX_CLI_VERSION;
 use crate::wrapping::RtOptions;
 use crate::wrapping::adaptive_wrap_line;
@@ -60,7 +60,6 @@ use codex_config::types::McpServerTransportConfig;
 #[cfg(test)]
 use codex_mcp::qualified_mcp_tool_name_prefix;
 use codex_otel::RuntimeMetricsSummary;
-use codex_protocol::account::PlanType;
 use codex_protocol::approvals::ExecPolicyAmendment;
 use codex_protocol::approvals::NetworkPolicyAmendment;
 #[cfg(test)]
@@ -1354,44 +1353,6 @@ pub(crate) fn padded_emoji(emoji: &str) -> String {
 }
 
 #[derive(Debug)]
-struct TooltipHistoryCell {
-    tip: String,
-    cwd: PathBuf,
-}
-
-impl TooltipHistoryCell {
-    fn new(tip: String, cwd: &Path) -> Self {
-        Self {
-            tip,
-            cwd: cwd.to_path_buf(),
-        }
-    }
-}
-
-impl HistoryCell for TooltipHistoryCell {
-    fn display_lines(&self, width: u16) -> Vec<Line<'static>> {
-        let indent = "  ";
-        let indent_width = UnicodeWidthStr::width(indent);
-        let wrap_width = usize::from(width.max(1))
-            .saturating_sub(indent_width)
-            .max(1);
-        let mut lines: Vec<Line<'static>> = Vec::new();
-        append_markdown(
-            &format!("**Tip:** {}", self.tip),
-            Some(wrap_width),
-            Some(self.cwd.as_path()),
-            &mut lines,
-        );
-
-        prefix_lines(lines, indent.into(), indent.into())
-    }
-
-    fn raw_lines(&self) -> Vec<Line<'static>> {
-        vec![Line::from(format!("Tip: {}", self.tip))]
-    }
-}
-
-#[derive(Debug)]
 pub struct SessionInfoCell(CompositeHistoryCell);
 
 impl HistoryCell for SessionInfoCell {
@@ -1417,8 +1378,6 @@ pub(crate) fn new_session_info(
     requested_model: &str,
     session: &ThreadSessionState,
     is_first_event: bool,
-    tooltip_override: Option<String>,
-    auth_plan: Option<PlanType>,
     show_fast_status: bool,
 ) -> SessionInfoCell {
     // Header box rendered as history (so it appears at the very top)
@@ -1470,22 +1429,13 @@ pub(crate) fn new_session_info(
         ];
 
         parts.push(Box::new(PlainHistoryCell { lines: help_lines }));
-    } else {
-        if config.show_tooltips
-            && let Some(tooltips) = tooltip_override
-                .or_else(|| tooltips::get_tooltip(auth_plan, show_fast_status))
-                .map(|tip| TooltipHistoryCell::new(tip, &config.cwd))
-        {
-            parts.push(Box::new(tooltips));
-        }
-        if requested_model != session.model.as_str() {
-            let lines = vec![
-                "model changed:".magenta().bold().into(),
-                format!("requested: {requested_model}").into(),
-                format!("used: {}", session.model).into(),
-            ];
-            parts.push(Box::new(PlainHistoryCell { lines }));
-        }
+    } else if requested_model != session.model.as_str() {
+        let lines = vec![
+            "model changed:".magenta().bold().into(),
+            format!("requested: {requested_model}").into(),
+            format!("used: {}", session.model).into(),
+        ];
+        parts.push(Box::new(PlainHistoryCell { lines }));
     }
 
     SessionInfoCell(CompositeHistoryCell { parts })
@@ -1637,10 +1587,10 @@ impl HistoryCell for SessionHeaderHistoryCell {
 
         let make_row = |spans: Vec<Span<'static>>| Line::from(spans);
 
-        // Title line rendered inside the box: ">_ OpenAI Codex (vX)"
+        // Title line rendered inside the box: ">_ CodexX (vX)"
         let title_spans: Vec<Span<'static>> = vec![
             Span::from(">_ ").dim(),
-            Span::from("OpenAI Codex").bold(),
+            Span::from(CODEX_CLI_BRAND).bold(),
             Span::from(" ").dim(),
             Span::from(format!("(v{})", self.version)).dim(),
         ];
@@ -1707,7 +1657,7 @@ impl HistoryCell for SessionHeaderHistoryCell {
 
     fn raw_lines(&self) -> Vec<Line<'static>> {
         let mut lines = vec![
-            Line::from(format!("OpenAI Codex (v{})", self.version)),
+            Line::from(format!("{CODEX_CLI_BRAND} (v{})", self.version)),
             Line::from(format!(
                 "model: {}{}",
                 self.model,
@@ -3445,7 +3395,6 @@ mod tests {
     use codex_otel::RuntimeMetricTotals;
     use codex_otel::RuntimeMetricsSummary;
     use codex_protocol::ThreadId;
-    use codex_protocol::account::PlanType;
     use codex_protocol::parse_command::ParsedCommand;
     use dirs::home_dir;
     use pretty_assertions::assert_eq;
@@ -3923,42 +3872,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn session_info_uses_availability_nux_tooltip_override() {
+    async fn session_info_ignores_startup_tooltip_override() {
         let config = test_config().await;
         let cell = new_session_info(
             &config,
             "gpt-5",
             &session_configured_event("gpt-5"),
             /*is_first_event*/ false,
-            Some("Model just became available".to_string()),
-            Some(PlanType::Free),
             /*show_fast_status*/ false,
         );
 
         let rendered = render_transcript(&cell).join("\n");
-        assert!(rendered.contains("Model just became available"));
-    }
-
-    #[tokio::test]
-    #[cfg_attr(
-        target_os = "windows",
-        ignore = "snapshot path rendering differs on Windows"
-    )]
-    async fn session_info_availability_nux_tooltip_snapshot() {
-        let mut config = test_config().await;
-        config.cwd = test_path_buf("/tmp/project").abs();
-        let cell = new_session_info(
-            &config,
-            "gpt-5",
-            &session_configured_event("gpt-5"),
-            /*is_first_event*/ false,
-            Some("Model just became available".to_string()),
-            Some(PlanType::Free),
-            /*show_fast_status*/ false,
-        );
-
-        let rendered = render_transcript(&cell).join("\n");
-        insta::assert_snapshot!(rendered);
+        assert!(!rendered.contains("Model just became available"));
     }
 
     #[tokio::test]
@@ -3969,8 +3894,6 @@ mod tests {
             "gpt-5",
             &session_configured_event("gpt-5"),
             /*is_first_event*/ true,
-            Some("Model just became available".to_string()),
-            Some(PlanType::Free),
             /*show_fast_status*/ false,
         );
 
@@ -3988,8 +3911,6 @@ mod tests {
             "gpt-5",
             &session_configured_event("gpt-5"),
             /*is_first_event*/ false,
-            Some("Model just became available".to_string()),
-            Some(PlanType::Free),
             /*show_fast_status*/ false,
         );
 

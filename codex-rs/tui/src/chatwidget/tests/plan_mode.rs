@@ -1550,7 +1550,6 @@ async fn make_startup_chat_with_cli_overrides(
         runtime_model_provider_base_url: None,
         initial_plan_type: None,
         model: Some(resolved_model),
-        startup_tooltip_override: None,
         status_line_invalid_items_warned: Arc::new(AtomicBool::new(false)),
         terminal_title_invalid_items_warned: Arc::new(AtomicBool::new(false)),
         session_telemetry,

@@ -72,6 +72,7 @@ jobs:
     env:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+      CODEXX_GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -90,7 +91,8 @@ jobs:
           rm -rf dist
           mkdir -p dist/package
           cp build/codexx dist/package/codexx
-          tar -C dist/package -czf dist/codexx-x86_64-unknown-linux-gnu.tar.gz codexx
+          cp build/codexx.version.txt dist/package/codexx.version.txt
+          tar -C dist/package -czf dist/codexx-x86_64-unknown-linux-gnu.tar.gz codexx codexx.version.txt
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -108,6 +110,7 @@ jobs:
     env:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+      CODEXX_GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -126,7 +129,8 @@ jobs:
           rm -rf dist
           mkdir -p dist/package
           cp build/codexx dist/package/codexx
-          tar -C dist/package -czf dist/codexx-aarch64-apple-darwin.tar.gz codexx
+          cp build/codexx.version.txt dist/package/codexx.version.txt
+          tar -C dist/package -czf dist/codexx-aarch64-apple-darwin.tar.gz codexx codexx.version.txt
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -144,6 +148,7 @@ jobs:
     env:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+      CODEXX_GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -166,7 +171,16 @@ jobs:
           Remove-Item -Recurse -Force dist -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path dist\package | Out-Null
           Copy-Item "codex-rs\target\x86_64-pc-windows-msvc\release\codex.exe" "dist\package\codexx.exe"
-          Compress-Archive -Path "dist\package\codexx.exe" -DestinationPath "dist\codexx-x86_64-pc-windows-msvc.zip"
+          $shortCommit = $env:GITHUB_SHA.Substring(0, 7)
+          @"
+          name=CodexX
+          version=${{ needs.prepare.outputs.version }}
+          commit=${{ github.sha }}
+          short_commit=$shortCommit
+          profile=release
+          artifact=codexx.exe
+          "@ | Set-Content -Path "dist\package\codexx.version.txt"
+          Compress-Archive -Path "dist\package\codexx.exe","dist\package\codexx.version.txt" -DestinationPath "dist\codexx-x86_64-pc-windows-msvc.zip"
 
       - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:

@@ -174,7 +174,6 @@ mod terminal_title;
 mod text_formatting;
 mod theme_picker;
 mod token_usage;
-mod tooltips;
 mod transcript_reflow;
 mod tui;
 mod ui_consts;
@@ -1117,8 +1116,6 @@ async fn run_ratatui_app(
 ) -> color_eyre::Result<AppExitInfo> {
     let remote_mode = matches!(&app_server_target, AppServerTarget::Remote { .. });
     color_eyre::install()?;
-
-    tooltips::announcement::prewarm();
 
     // Forward panic reports through tracing so they appear in the UI status
     // line, but do not swallow the default/color-eyre panic handler.

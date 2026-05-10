@@ -442,7 +442,6 @@ async fn enqueue_primary_thread_session_replays_turns_before_initial_prompt_subm
         runtime_model_provider_base_url: None,
         initial_plan_type: None,
         model: Some(model),
-        startup_tooltip_override: None,
         status_line_invalid_items_warned: app.status_line_invalid_items_warned.clone(),
         terminal_title_invalid_items_warned: app.terminal_title_invalid_items_warned.clone(),
         session_telemetry: app.session_telemetry.clone(),
@@ -3812,8 +3811,6 @@ async fn render_clear_ui_header_after_long_transcript_for_snapshot() -> String {
             app.chat_widget.current_model(),
             &session,
             is_first,
-            /*tooltip_override*/ None,
-            /*auth_plan*/ None,
             /*show_fast_status*/ false,
         )) as Arc<dyn HistoryCell>
     };
@@ -4609,8 +4606,6 @@ async fn backtrack_selection_with_duplicate_history_targets_unique_turn() {
             app.chat_widget.current_model(),
             &session,
             is_first,
-            /*tooltip_override*/ None,
-            /*auth_plan*/ None,
             /*show_fast_status*/ false,
         )) as Arc<dyn HistoryCell>
     };
@@ -4910,7 +4905,6 @@ async fn replace_chat_widget_reseeds_collab_agent_metadata_for_replay() {
             .map(str::to_string),
         initial_plan_type: app.chat_widget.current_plan_type(),
         model: Some(app.chat_widget.current_model().to_string()),
-        startup_tooltip_override: None,
         status_line_invalid_items_warned: app.status_line_invalid_items_warned.clone(),
         terminal_title_invalid_items_warned: app.terminal_title_invalid_items_warned.clone(),
         session_telemetry: app.session_telemetry.clone(),

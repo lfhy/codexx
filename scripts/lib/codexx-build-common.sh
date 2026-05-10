@@ -16,6 +16,18 @@ codexx_toolchain() {
   sed -n 's/^channel = "\(.*\)"/\1/p' "$(codexx_cargo_root)/rust-toolchain.toml" | head -n 1
 }
 
+codexx_workspace_version() {
+  sed -n 's/^version = "\(.*\)"/\1/p' "$(codexx_cargo_root)/Cargo.toml" | head -n 1
+}
+
+codexx_git_commit() {
+  git -C "$(codexx_repo_root)" rev-parse HEAD
+}
+
+codexx_git_short_commit() {
+  git -C "$(codexx_repo_root)" rev-parse --short=7 HEAD
+}
+
 codexx_cargo() {
   local toolchain
   toolchain="$(codexx_toolchain)"

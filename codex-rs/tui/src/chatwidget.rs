@@ -585,7 +585,6 @@ pub(crate) struct ChatWidgetInit {
     pub(crate) runtime_model_provider_base_url: Option<String>,
     pub(crate) initial_plan_type: Option<PlanType>,
     pub(crate) model: Option<String>,
-    pub(crate) startup_tooltip_override: Option<String>,
     // Shared latch so we only warn once about invalid status-line item IDs.
     pub(crate) status_line_invalid_items_warned: Arc<AtomicBool>,
     // Shared latch so we only warn once about invalid terminal-title item IDs.
@@ -758,8 +757,6 @@ pub(crate) struct ChatWidget {
     frame_requester: FrameRequester,
     // Whether to include the initial welcome banner on session configured
     show_welcome_banner: bool,
-    // One-shot tooltip override for the primary startup session.
-    startup_tooltip_override: Option<String>,
     // When resuming an existing session (selected via resume picker), avoid an
     // immediate redraw on SessionConfigured to prevent a gratuitous UI flicker.
     suppress_session_configured_redraw: bool,
@@ -1904,7 +1901,6 @@ impl ChatWidget {
         self.sync_goal_command_enabled();
         self.refresh_plugin_mentions();
         if display == SessionConfiguredDisplay::Normal {
-            let startup_tooltip_override = self.startup_tooltip_override.take();
             let show_fast_status = self
                 .should_show_fast_status(&model_for_header, self.effective_service_tier.as_deref());
             let session_info_cell = history_cell::new_session_info(
@@ -1912,8 +1908,6 @@ impl ChatWidget {
                 &model_for_header,
                 &session,
                 self.show_welcome_banner,
-                startup_tooltip_override,
-                self.plan_type,
                 show_fast_status,
             );
             self.apply_session_info_cell(session_info_cell);
@@ -4668,7 +4662,6 @@ impl ChatWidget {
             runtime_model_provider_base_url,
             initial_plan_type,
             model,
-            startup_tooltip_override,
             status_line_invalid_items_warned,
             terminal_title_invalid_items_warned,
             session_telemetry,
@@ -4809,7 +4802,6 @@ impl ChatWidget {
             chat_keymap,
             queued_message_edit_hint_binding,
             show_welcome_banner: is_first_run,
-            startup_tooltip_override,
             suppress_session_configured_redraw: false,
             suppress_initial_user_message_submit: false,
             pending_notification: None,
