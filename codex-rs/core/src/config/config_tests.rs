@@ -3938,6 +3938,54 @@ async fn responses_websocket_features_do_not_change_wire_api() -> std::io::Resul
 }
 
 #[tokio::test]
+async fn built_in_openai_provider_defaults_to_http_transport() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+
+    let config = Config::load_from_base_config_with_overrides(
+        ConfigToml::default(),
+        ConfigOverrides::default(),
+        codex_home.abs(),
+    )
+    .await?;
+
+    assert_eq!(config.model_provider_id, "openai");
+    assert_eq!(config.model_provider.wire_api, WireApi::Responses);
+    assert!(!config.model_provider.supports_websockets);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn explicit_custom_provider_websocket_enable_is_preserved() -> std::io::Result<()> {
+    let codex_home = TempDir::new()?;
+    let cfg = toml::from_str::<ConfigToml>(
+        r#"
+model_provider = "openai-compatible"
+
+[model_providers.openai-compatible]
+name = "OpenAI Compatible"
+base_url = "https://example.com/v1"
+wire_api = "responses"
+supports_websockets = true
+"#,
+    )
+    .expect("custom provider config should deserialize");
+
+    let config = Config::load_from_base_config_with_overrides(
+        cfg,
+        ConfigOverrides::default(),
+        codex_home.abs(),
+    )
+    .await?;
+
+    assert_eq!(config.model_provider_id, "openai-compatible");
+    assert_eq!(config.model_provider.wire_api, WireApi::Responses);
+    assert!(config.model_provider.supports_websockets);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn top_level_wire_api_changes_built_in_provider_default() -> std::io::Result<()> {
     let codex_home = TempDir::new()?;
     let cfg = ConfigToml {

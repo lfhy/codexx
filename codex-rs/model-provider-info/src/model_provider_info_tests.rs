@@ -320,6 +320,14 @@ fn test_built_in_model_providers_with_chat_wire_override() {
 }
 
 #[test]
+fn test_built_in_openai_provider_defaults_to_http_transport() {
+    let provider = ModelProviderInfo::create_openai_provider(/*base_url*/ None);
+
+    assert_eq!(provider.wire_api, WireApi::Responses);
+    assert!(!provider.supports_websockets);
+}
+
+#[test]
 fn test_merge_configured_model_providers_adds_custom_provider() {
     let custom_provider = ModelProviderInfo {
         name: "Custom".to_string(),
