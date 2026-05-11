@@ -24,8 +24,9 @@ Codexx 是基于 OpenAI `codex` 仓库维护的一个 CLI / TUI fork，目标是
 
 如果你已经拿到发行版：
 
-- macOS / Linux：解压后给 `codexx` 添加执行权限，再直接运行
-- Windows：解压后运行 `codexx.exe`
+- Linux：可直接下载裸二进制，或者使用 `.tar.gz` / `.zip` 包
+- macOS：使用对应架构的 `.dmg`，或者下载 universal `.dmg`
+- Windows：可直接运行 `codexx-windows-*.exe`，也可以执行 `codexx-windows-*-install.exe`
 
 ### 2. 从源码构建
 
@@ -104,7 +105,9 @@ codex-rs/target/debug/codex
 本项目包含独立的 GitHub Actions 发布工作流，不依赖上游私有签名或专用 runner。
 
 - 推送 `v0.0.1` 这类 tag 时，会自动触发构建与发布
-- 默认发布 Linux x86_64、macOS arm64、Windows x86_64 三个平台产物
+- 默认发布 Linux `amd64` / `arm64` 的裸二进制、`.tar.gz`、`.zip`
+- 默认发布 macOS `amd64` / `arm64` / `universal` 的 `.dmg`
+- 默认发布 Windows `amd64` / `arm64` 的 `.exe` 与 `install.exe`
 - Release 文案使用中文模板，并自动汇总两个 tag 之间的提交记录
 
 示例：

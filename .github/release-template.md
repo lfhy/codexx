@@ -17,10 +17,14 @@
 ## 已知说明
 - 当前 GitHub Release 为未签名构建产物，不包含私有签名或 notarization。
 - macOS 首次运行若提示安全限制，可先执行：`xattr -dr com.apple.quarantine ./codexx`
-- Windows 与 Linux 发行包默认只包含主程序，不附带额外安装器。
+- Windows 的 `install.exe` 为下载式安装器，首次执行时会拉取对应架构的正式发布 `exe`。
 
 ## 附件说明
-- Linux：`codexx-x86_64-unknown-linux-gnu.tar.gz`
-- macOS：`codexx-aarch64-apple-darwin.tar.gz`
-- Windows：`codexx-x86_64-pc-windows-msvc.zip`
+- Linux amd64：`codexx-linux-amd64` / `codexx-linux-amd64.tar.gz` / `codexx-linux-amd64.zip`
+- Linux arm64：`codexx-linux-arm64` / `codexx-linux-arm64.tar.gz` / `codexx-linux-arm64.zip`
+- macOS amd64：`codexx-darwin-amd64.dmg`
+- macOS arm64：`codexx-darwin-arm64.dmg`
+- macOS universal：`codexx-darwin-universal.dmg`
+- Windows amd64：`codexx-windows-amd64.exe` / `codexx-windows-amd64-install.exe`
+- Windows arm64：`codexx-windows-arm64.exe` / `codexx-windows-arm64-install.exe`
 - 校验：`SHA256SUMS`
