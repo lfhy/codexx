@@ -310,6 +310,14 @@ codexx_ensure_rust_toolchain() {
   local toolchain
   toolchain="$(codexx_toolchain)"
 
+  if rustup toolchain list | awk '{print $1}' | grep -Eq "^${toolchain}(-|$)"; then
+    codexx_log "Rust toolchain ${toolchain} already installed"
+    if [[ "${CODEXX_SKIP_RUSTUP_SYNC:-0}" == "1" ]]; then
+      codexx_log "Skipping rustup sync because CODEXX_SKIP_RUSTUP_SYNC=1"
+      return 0
+    fi
+  fi
+
   codexx_log "Ensuring Rust toolchain ${toolchain}"
   rustup toolchain install "$toolchain" --profile minimal
   rustup component add clippy rustfmt rust-src --toolchain "$toolchain"

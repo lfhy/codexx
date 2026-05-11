@@ -84,11 +84,16 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
       CODEXX_GIT_SHA: ${{ github.sha }}
+      CODEXX_SKIP_RUSTUP_SYNC: "1"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@a0b273b48ed29de4470960879e8381ff45632f26 # 1.93.0
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Build codexx
         run: |
@@ -156,11 +161,16 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
       CODEXX_GIT_SHA: ${{ github.sha }}
+      CODEXX_SKIP_RUSTUP_SYNC: "1"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@a0b273b48ed29de4470960879e8381ff45632f26 # 1.93.0
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Build codexx
         run: |
@@ -221,6 +231,7 @@ jobs:
       CARGO_NET_GIT_FETCH_WITH_CLI: true
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
       CODEXX_GIT_SHA: ${{ github.sha }}
+      CODEXX_SKIP_RUSTUP_SYNC: "1"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
