@@ -85,6 +85,7 @@ jobs:
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
       CODEXX_GIT_SHA: ${{ github.sha }}
       CODEXX_SKIP_RUSTUP_SYNC: "1"
+      CODEXX_BOOTSTRAP_SKIP_DEV_TOOLS: "1"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -94,6 +95,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@a0b273b48ed29de4470960879e8381ff45632f26 # 1.93.0
         with:
           targets: ${{ matrix.target }}
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.2.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/codexx/sccache
+          key: codexx-release-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('codex-rs/Cargo.lock', 'codex-rs/rust-toolchain.toml') }}
+          restore-keys: |
+            codexx-release-${{ runner.os }}-${{ matrix.target }}-
 
       - name: Build codexx
         run: |
@@ -162,6 +173,7 @@ jobs:
       CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
       CODEXX_GIT_SHA: ${{ github.sha }}
       CODEXX_SKIP_RUSTUP_SYNC: "1"
+      CODEXX_BOOTSTRAP_SKIP_DEV_TOOLS: "1"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -171,6 +183,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@a0b273b48ed29de4470960879e8381ff45632f26 # 1.93.0
         with:
           targets: ${{ matrix.target }}
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.2.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/codexx/sccache
+          key: codexx-release-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('codex-rs/Cargo.lock', 'codex-rs/rust-toolchain.toml') }}
+          restore-keys: |
+            codexx-release-${{ runner.os }}-${{ matrix.target }}-
 
       - name: Build codexx
         run: |
@@ -221,10 +243,17 @@ jobs:
             dist/codexx-darwin-${{ matrix.arch }}.version.txt
           if-no-files-found: error
 
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: codexx-darwin-${{ matrix.arch }}-bin
+          path: build/codexx
+          if-no-files-found: error
+
   macos-universal:
     name: macos-universal
     needs:
       - prepare
+      - macos
     runs-on: macos-15
     timeout-minutes: 90
     env:
@@ -238,17 +267,21 @@ jobs:
           ref: ${{ needs.prepare.outputs.checkout_ref }}
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@a0b273b48ed29de4470960879e8381ff45632f26 # 1.93.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          targets: x86_64-apple-darwin,aarch64-apple-darwin
+          name: codexx-darwin-amd64-bin
+          path: universal-inputs/amd64
 
-      - name: Build universal inputs
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: codexx-darwin-arm64-bin
+          path: universal-inputs/arm64
+
+      - name: Prepare universal inputs
         run: |
           set -euo pipefail
-          scripts/bootstrap-build-env.sh
-          cd codex-rs
-          rustup run "$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml | head -n 1)" cargo build -p codex-cli --bin codex --release --target x86_64-apple-darwin
-          rustup run "$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml | head -n 1)" cargo build -p codex-cli --bin codex --release --target aarch64-apple-darwin
+          test -f universal-inputs/amd64/codexx
+          test -f universal-inputs/arm64/codexx
 
       - name: Build universal macOS dmg
         run: |
@@ -263,8 +296,8 @@ jobs:
           mkdir -p "$package_dir/payload"
 
           lipo -create \
-            codex-rs/target/x86_64-apple-darwin/release/codex \
-            codex-rs/target/aarch64-apple-darwin/release/codex \
+            universal-inputs/amd64/codexx \
+            universal-inputs/arm64/codexx \
             -output "$package_dir/payload/codexx"
           chmod 755 "$package_dir/payload/codexx"
 
@@ -328,6 +361,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@a0b273b48ed29de4470960879e8381ff45632f26 # 1.93.0
         with:
           targets: ${{ matrix.target }}
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.2.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: codexx-release-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('codex-rs/Cargo.lock', 'codex-rs/rust-toolchain.toml') }}
+          restore-keys: |
+            codexx-release-${{ runner.os }}-${{ matrix.target }}-
 
       - name: Build codexx
         working-directory: codex-rs

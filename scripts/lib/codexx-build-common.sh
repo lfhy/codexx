@@ -391,9 +391,13 @@ codexx_prepare_build_env() {
   codexx_install_system_prereqs
   codexx_ensure_rustup
   codexx_ensure_rust_toolchain
-  codexx_ensure_cargo_binary just just
-  codexx_ensure_cargo_binary cargo-insta cargo-insta
-  codexx_ensure_cargo_binary cargo-nextest cargo-nextest
+  if [[ "${CODEXX_BOOTSTRAP_SKIP_DEV_TOOLS:-0}" != "1" ]]; then
+    codexx_ensure_cargo_binary just just
+    codexx_ensure_cargo_binary cargo-insta cargo-insta
+    codexx_ensure_cargo_binary cargo-nextest cargo-nextest
+  else
+    codexx_log "Skipping optional dev tool bootstrap because CODEXX_BOOTSTRAP_SKIP_DEV_TOOLS=1"
+  fi
   codexx_ensure_sccache
   codexx_start_sccache
   codexx_print_environment_report
